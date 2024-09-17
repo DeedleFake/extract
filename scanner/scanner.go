@@ -254,7 +254,29 @@ func (s *scanner) rune() stateFunc {
 	return s.start
 }
 
-func (s *scanner) ident() stateFunc
+func (s *scanner) ident() stateFunc {
+	if !s.read() {
+		return nil
+	}
+
+	switch s.c {
+	case '_':
+		s.buf.WriteByte('_')
+		return s.ident
+	case '?', '!':
+		s.buf.WriteRune(s.c)
+		return s.start
+	}
+
+	if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
+		s.buf.WriteRune(s.c)
+		return s.ident
+	}
+
+	s.unread()
+	s.tok.Val = Ident(s.buf.String())
+	return s.start
+}
 
 type Token struct {
 	Line, Col int
