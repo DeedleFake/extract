@@ -1,7 +1,10 @@
 // Package extract implements the core of the Extract language.
 package extract
 
-import "iter"
+import (
+	"iter"
+	"slices"
+)
 
 // List is a singly-linked list. It is the core building block of the
 // language. Both a zero-value List and a nil *List are valid lists of
@@ -10,6 +13,13 @@ type List struct {
 	head any
 	tail *List
 	len  int
+}
+
+func ListFrom(vals ...any) (list *List) {
+	for _, v := range slices.Backward(vals) {
+		list = list.Push(v)
+	}
+	return list
 }
 
 // Head returns the value at the head of the list. In other words, the
@@ -71,3 +81,9 @@ func (list *List) All() iter.Seq[any] {
 		}
 	}
 }
+
+type Int int
+
+type String string
+
+type Atom string
