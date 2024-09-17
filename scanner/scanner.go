@@ -1,3 +1,4 @@
+// Package scanner implements a scanner for Extract tokens.
 package scanner
 
 import (
@@ -21,6 +22,11 @@ type scanner struct {
 	tok Token
 }
 
+// Scan returns an iterator that scans tokens from r and yields them
+// one at a time. If there is an error, it will yield it and then
+// exit. As it reads r completely, it never yields io.EOF.
+//
+// The returned iterator is single-use.
 func Scan(r io.Reader) iter.Seq2[Token, error] {
 	s := scanner{
 		r:    bufio.NewReader(r),
@@ -295,19 +301,26 @@ func (s *scanner) oper() stateFunc {
 	return s.start
 }
 
+// Token is an Extract language parser token. If the token is valid,
+// Val will be one of the token types defined in this package.
 type Token struct {
 	Line, Col int
 	Val       any
 }
 
-type Lparen struct{}
-type Rparen struct{}
-type Int int64
-type Float float64
-type String string
-type Ident string
-type Oper string
+// Token value type.
+type (
+	Lparen struct{}
+	Rparen struct{}
+	Int    int64
+	Float  float64
+	String string
+	Ident  string
+	Oper   string
+)
 
+// UnexpectedRuneError is yielded when an unexpected rune is found
+// during the course of scanning.
 type UnexpectedRuneError struct {
 	Line, Col int
 	Rune      rune
@@ -317,6 +330,9 @@ func (err *UnexpectedRuneError) Error() string {
 	return fmt.Sprintf("unexpected rune %q (%v:%v)", err.Rune, err.Line, err.Col)
 }
 
+// TokenError is yielded when an unexpected error occurs during the
+// scanning of a token. Line and Col are for the beginning of the
+// token, not the exact location of the error.
 type TokenError struct {
 	Line, Col int
 	Err       error
