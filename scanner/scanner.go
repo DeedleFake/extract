@@ -12,7 +12,7 @@ import (
 	"unicode"
 )
 
-type scanner struct {
+type Scanner struct {
 	r         *bufio.Reader
 	line, col int
 	c         rune
@@ -22,53 +22,68 @@ type scanner struct {
 	tok Token
 }
 
-// Scan returns an iterator that scans tokens from r and yields them
-// one at a time. If there is an error, it will yield it and then
-// exit. As it reads r completely, it never yields io.EOF.
-//
-// The returned iterator is single-use.
-func Scan(r io.Reader) iter.Seq2[Token, error] {
-	s := scanner{
+func New(r io.Reader) *Scanner {
+	return &Scanner{
 		r:    bufio.NewReader(r),
 		line: 1, col: 1,
 	}
-	state := s.start
+}
 
-	return func(yield func(Token, error) bool) {
-		for s.err == nil {
-			if s.tok.Val != nil {
-				if !yield(s.tok, nil) {
-					return
-				}
-				s.tok = Token{}
+func (s *Scanner) Scan() bool {
+	s.start()
+	return s.err == nil
+}
+
+func (s *Scanner) Token() Token {
+	return s.tok
+}
+
+func (s *Scanner) Err() error {
+	if errors.Is(s.err, io.EOF) {
+		return nil
+	}
+	return s.err
+}
+
+func (s *Scanner) All() iter.Seq[Token] {
+	return func(yield func(Token) bool) {
+		for s.Scan() {
+			if !yield(s.Token()) {
+				return
 			}
-
-			state = state()
-		}
-
-		if !errors.Is(s.err, io.EOF) {
-			yield(Token{}, s.err)
 		}
 	}
 }
 
-func (s *scanner) raiseToken(err error) {
-	s.err = &TokenError{
+type raise struct{ err error }
+
+func (s *Scanner) raise(err error) {
+	panic(raise{err: err})
+}
+
+func (s *Scanner) raiseToken(err error) {
+	s.raise(&TokenError{
 		Line: s.tok.Line,
 		Col:  s.tok.Col,
 		Err:  err,
-	}
+	})
 }
 
-func (s *scanner) raiseUnexpectedRune() {
-	s.err = &UnexpectedRuneError{
+func (s *Scanner) raiseUnexpectedRune() {
+	s.raise(&UnexpectedRuneError{
 		Line: s.line,
 		Col:  s.col - 1,
 		Rune: s.c,
+	})
+}
+
+func (s *Scanner) raiseUnexpectedEOF(literal string) {
+	if errors.Is(s.err, io.EOF) {
+		s.raiseToken(fmt.Errorf("%w in %v literal", io.ErrUnexpectedEOF, literal))
 	}
 }
 
-func (s *scanner) read() bool {
+func (s *Scanner) read() bool {
 	s.c, _, s.err = s.r.ReadRune()
 	if s.err != nil {
 		return false
@@ -84,71 +99,94 @@ func (s *scanner) read() bool {
 	return true
 }
 
-func (s *scanner) unread() {
+func (s *Scanner) unread() {
 	err := s.r.UnreadRune()
 	if err != nil {
 		panic(err) // If this happens, there's a bug.
 	}
 }
 
-type stateFunc func() stateFunc
+func (s *Scanner) start() {
+	defer func() {
+		switch r := recover().(type) {
+		case nil:
+		case raise:
+			s.err = r.err
+		default:
+			panic(r)
+		}
+	}()
 
-func (s *scanner) start() stateFunc {
+	defer s.buf.Reset()
+
 	s.tok.Line = s.line
 	s.tok.Col = s.col
-	if !s.read() {
-		return nil
+
+	for {
+		if !s.read() {
+			return
+		}
+		if !unicode.IsSpace(s.c) {
+			break
+		}
 	}
-	s.buf.Reset()
 
 	switch s.c {
 	case '(':
 		s.tok.Val = Lparen{}
-		return s.start
+		return
 	case ')':
 		s.tok.Val = Rparen{}
-		return s.start
+		return
 	case '"':
-		return s.string
+		s.string()
+		return
 	case '\'':
-		return s.rune
+		s.rune()
+		return
 	case '_':
 		s.buf.WriteByte('_')
-		return s.ident
+		s.ident()
+		return
 	}
 
-	if unicode.IsSpace(s.c) {
-		return s.start
-	}
 	if s.c >= '0' && s.c <= '9' {
 		s.buf.WriteRune(s.c)
-		return s.int
+		s.int()
+		return
 	}
 	if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
 		s.buf.WriteRune(s.c)
-		return s.ident
+		s.ident()
+		return
 	}
 	if maybeOper(s.c) {
 		s.buf.WriteRune(s.c)
-		return s.oper
+		s.oper()
+		return
 	}
 
 	s.raiseUnexpectedRune()
-	return nil
 }
 
-func (s *scanner) int() stateFunc {
-	if !s.read() {
-		return nil
-	}
+func (s *Scanner) int() {
+	for {
+		if !s.read() {
+			break
+		}
 
-	if s.c == '.' {
-		s.buf.WriteByte('.')
-		return s.float
-	}
-	if s.c >= '0' && s.c <= '9' {
-		s.buf.WriteRune(s.c)
-		return s.int
+		if s.c == '.' {
+			s.buf.WriteByte('.')
+			s.float()
+			return
+		}
+		if s.c >= '0' && s.c <= '9' {
+			s.buf.WriteRune(s.c)
+			continue
+		}
+
+		s.unread()
+		break
 	}
 
 	str := s.buf.String()
@@ -157,19 +195,21 @@ func (s *scanner) int() stateFunc {
 		s.raiseToken(fmt.Errorf("parse integer literal: %w", err))
 	}
 	s.tok.Val = Int(v)
-
-	s.unread()
-	return s.start
 }
 
-func (s *scanner) float() stateFunc {
-	if !s.read() {
-		return nil
-	}
+func (s *Scanner) float() {
+	for {
+		if !s.read() {
+			return
+		}
 
-	if s.c >= '0' && s.c <= '9' {
-		s.buf.WriteRune(s.c)
-		return s.float
+		if s.c >= '0' && s.c <= '9' {
+			s.buf.WriteRune(s.c)
+			continue
+		}
+
+		s.unread()
+		break
 	}
 
 	str := s.buf.String()
@@ -178,132 +218,117 @@ func (s *scanner) float() stateFunc {
 		s.raiseToken(fmt.Errorf("parse float literal: %w", err))
 	}
 	s.tok.Val = Float(v)
-
-	s.unread()
-	return s.start
 }
 
-func (s *scanner) string() stateFunc {
-	if !s.read() {
-		if errors.Is(s.err, io.EOF) {
-			s.raiseToken(errors.New("EOF in string literal"))
-		}
-		return nil
-	}
-
-	switch s.c {
-	case '\\':
+func (s *Scanner) string() {
+	for {
 		if !s.read() {
-			if errors.Is(s.err, io.EOF) {
-				s.raiseToken(errors.New("EOF in string literal"))
+			s.raiseUnexpectedEOF("string")
+			return
+		}
+
+		switch s.c {
+		case '\\':
+			if !s.read() {
+				s.raiseUnexpectedEOF("string")
+				return
 			}
-			return nil
-		}
-		v, ok := escape(s.c, '"')
-		if !ok {
-			s.raiseToken(fmt.Errorf("invalid escape sequence %q", s.c))
-			return nil
-		}
-		s.buf.WriteRune(v)
-		return s.string
+			s.escape('"')
+			s.buf.WriteRune(s.c)
 
-	case '"':
-		s.tok.Val = String(s.buf.String())
-		return s.start
+		case '"':
+			s.tok.Val = String(s.buf.String())
+			return
 
-	default:
-		s.buf.WriteRune(s.c)
-		return s.string
+		default:
+			s.buf.WriteRune(s.c)
+		}
 	}
 }
 
-func (s *scanner) rune() stateFunc {
+func (s *Scanner) rune() {
+	if !s.read() {
+		s.raiseUnexpectedEOF("rune")
+		return
+	}
+
 	var val rune
-
-	if !s.read() {
-		if errors.Is(s.err, io.EOF) {
-			s.raiseToken(errors.New("EOF in rune literal"))
-		}
-		return nil
-	}
-
 	switch s.c {
 	case '\\':
 		if !s.read() {
-			if errors.Is(s.err, io.EOF) {
-				s.raiseToken(errors.New("EOF in rune literal"))
-			}
-			return nil
+			s.raiseUnexpectedEOF("rune")
+			return
 		}
-		v, ok := escape(s.c, '\'')
-		if !ok {
-			s.raiseToken(fmt.Errorf("invalid escape sequence %q", s.c))
-			return nil
-		}
-		val = v
+		s.escape('\'')
+		val = s.c
 
 	case '\'':
 		s.raiseToken(errors.New("empty rune literal"))
-		return nil
+		return
 
 	default:
 		val = s.c
 	}
 
 	if !s.read() {
-		if errors.Is(s.err, io.EOF) {
-			s.raiseToken(errors.New("EOF in rune literal"))
-		}
-		return nil
+		s.raiseUnexpectedEOF("rune")
+		return
 	}
 	if s.c != '\'' {
 		s.raiseToken(errors.New("rune literal contains more than one rune"))
-		return nil
+		return
 	}
 
 	s.tok.Val = Int(val)
-	return s.start
 }
 
-func (s *scanner) ident() stateFunc {
-	if !s.read() {
-		return nil
-	}
+func (s *Scanner) ident() {
+	for {
+		if !s.read() {
+			return
+		}
 
-	switch s.c {
-	case '_', '.':
-		s.buf.WriteRune(s.c)
-		return s.ident
-	case '?', '!':
-		s.buf.WriteRune(s.c)
-		return s.start
-	}
+		switch s.c {
+		case '_', '.':
+			s.buf.WriteRune(s.c)
+			continue
+		case '?', '!':
+			s.buf.WriteRune(s.c)
+			break
+		}
 
-	if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
-		s.buf.WriteRune(s.c)
-		return s.ident
-	}
+		if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
+			s.buf.WriteRune(s.c)
+			continue
+		}
 
-	s.unread()
+		s.unread()
+		break
+	}
 	str := s.buf.String()
 	if strings.HasSuffix(str, ".") {
 		s.raiseToken(errors.New("identifiers must not end with \".\""))
-		return nil
+		return
 	}
 	s.tok.Val = Ident(str)
-	return s.start
 }
 
-func (s *scanner) oper() stateFunc {
+func (s *Scanner) oper() {
 	// This has its own state to make it easier to potentially support
 	// longer operators later.
-
-	if !s.read() {
-		return nil
-	}
-
 	s.tok.Val = Oper(s.buf.String())
-	return s.start
+}
+
+func (s *Scanner) escape(q rune) {
+	switch s.c {
+	case q, '\\':
+	case 'n':
+		s.c = '\n'
+	case 't':
+		s.c = '\t'
+	default:
+		s.raiseToken(fmt.Errorf("invalid escape sequence %q", s.c))
+	}
 }
 
 // Token is an Extract language parser token. If the token is valid,
@@ -349,17 +374,4 @@ func (err *TokenError) Error() string {
 
 func (err *TokenError) Unwrap() error {
 	return err.Err
-}
-
-func escape(c rune, q rune) (rune, bool) {
-	switch c {
-	case q, '\\':
-		return c, true
-	case 'n':
-		return '\n', true
-	case 't':
-		return '\t', true
-	default:
-		return 0, false
-	}
 }

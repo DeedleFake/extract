@@ -1,26 +1,25 @@
 package scanner_test
 
 import (
-	"iter"
 	"strings"
 	"testing"
 
 	"deedles.dev/extract/scanner"
 )
 
-func checkTokens(t *testing.T, got iter.Seq2[scanner.Token, error], ex []any) {
-	t.Helper()
-
+func checkTokens(t *testing.T, s *scanner.Scanner, ex []any) {
 	var i int
-	for tok, err := range got {
-		if err != nil {
-			t.Fatal(err)
-		}
-
+	for tok := range s.All() {
 		if tok.Val != ex[i] {
 			t.Fatal(tok)
 		}
 		i++
+	}
+	if s.Err() != nil {
+		t.Fatal(s.Err())
+	}
+	if i != len(ex) {
+		t.Fatal(i)
 	}
 }
 
@@ -45,7 +44,7 @@ func TestScan(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			checkTokens(t, scanner.Scan(strings.NewReader(test.input)), test.output)
+			checkTokens(t, scanner.New(strings.NewReader(test.input)), test.output)
 		})
 	}
 }
