@@ -29,7 +29,7 @@ func Scan(r io.Reader) iter.Seq2[Token, error] {
 	state := s.start
 
 	return func(yield func(Token, error) bool) {
-		for s.err != nil {
+		for s.err == nil {
 			if s.tok.Val != nil {
 				if !yield(s.tok, nil) {
 					return
@@ -198,6 +198,7 @@ func (s *scanner) string() stateFunc {
 		return s.string
 
 	case '"':
+		s.tok.Val = String(s.buf.String())
 		return s.start
 
 	default:
@@ -287,7 +288,7 @@ type Lparen struct{}
 type Rparen struct{}
 type Int int64
 type Float float64
-type tring string
+type String string
 type Ident string
 type Oper string
 
