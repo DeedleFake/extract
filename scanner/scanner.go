@@ -285,7 +285,12 @@ func (s *scanner) ident() stateFunc {
 	}
 
 	s.unread()
-	s.tok.Val = Ident(s.buf.String())
+	str := s.buf.String()
+	if strings.HasSuffix(str, ".") {
+		s.raiseToken(errors.New("identifiers must not end with \".\""))
+		return nil
+	}
+	s.tok.Val = Ident(str)
 	return s.start
 }
 
