@@ -141,6 +141,9 @@ func (s *Scanner) start() {
 	case '"':
 		s.string()
 		return
+	case ':':
+		s.atomcolon()
+		return
 	case '\'':
 		s.rune()
 		return
@@ -155,9 +158,14 @@ func (s *Scanner) start() {
 		s.int()
 		return
 	}
-	if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
+	if s.c >= 'a' && s.c <= 'z' {
 		s.buf.WriteRune(s.c)
 		s.ident()
+		return
+	}
+	if s.c >= 'A' && s.c <= 'Z' {
+		s.buf.WriteRune(s.c)
+		s.atom()
 		return
 	}
 	if maybeOper(s.c) {
@@ -167,6 +175,30 @@ func (s *Scanner) start() {
 	}
 
 	s.raiseUnexpectedRune()
+}
+
+func (s *Scanner) atomcolon() {
+	if !s.read() {
+		s.raiseUnexpectedEOF("atom")
+		return
+	}
+
+	switch s.c {
+	case '"':
+		s.string()
+		s.tok.Val = Atom(s.tok.Val.(String))
+		return
+
+	default:
+		s.unread()
+		s.atom()
+		return
+	}
+}
+
+func (s *Scanner) atom() {
+	s.ident()
+	s.tok.Val = Atom(s.tok.Val.(Ident))
 }
 
 func (s *Scanner) int() {
@@ -297,7 +329,7 @@ func (s *Scanner) ident() {
 			break
 		}
 
-		if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
+		if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') || (s.c >= '0' && s.c <= '9') {
 			s.buf.WriteRune(s.c)
 			continue
 		}
@@ -343,6 +375,7 @@ type (
 	String string
 	Ident  string
 	Oper   string
+	Atom   string
 )
 
 // UnexpectedRuneError is yielded when an unexpected rune is found
