@@ -106,8 +106,6 @@ func (s *scanner) start() stateFunc {
 		return s.string
 	case '\'':
 		return s.rune
-	case ':':
-		return s.atomstart
 	case '_':
 		s.buf.WriteByte('_')
 		return s.ident
@@ -120,13 +118,9 @@ func (s *scanner) start() stateFunc {
 		s.buf.WriteRune(s.c)
 		return s.int
 	}
-	if s.c >= 'a' && s.c <= 'z' {
+	if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') {
 		s.buf.WriteRune(s.c)
-		return s.string
-	}
-	if s.c >= 'A' && s.c <= 'Z' {
-		s.buf.WriteRune(s.c)
-		return s.atom
+		return s.ident
 	}
 
 	s.raiseUnexpectedRune()
@@ -179,13 +173,86 @@ func (s *scanner) float() stateFunc {
 	return s.start
 }
 
-func (s *scanner) string() stateFunc
+func (s *scanner) string() stateFunc {
+	if !s.read() {
+		if errors.Is(s.err, io.EOF) {
+			s.raiseToken(errors.New("EOF in string literal"))
+		}
+		return nil
+	}
 
-func (s *scanner) rune() stateFunc
+	switch s.c {
+	case '\\':
+		if !s.read() {
+			if errors.Is(s.err, io.EOF) {
+				s.raiseToken(errors.New("EOF in string literal"))
+			}
+			return nil
+		}
+		v, ok := escape(s.c, '"')
+		if !ok {
+			s.raiseToken(fmt.Errorf("invalid escape sequence %q", s.c))
+			return nil
+		}
+		s.buf.WriteRune(v)
+		return s.string
 
-func (s *scanner) atomstart() stateFunc
+	case '"':
+		return s.start
 
-func (s *scanner) atom() stateFunc
+	default:
+		s.buf.WriteRune(s.c)
+		return s.string
+	}
+}
+
+func (s *scanner) rune() stateFunc {
+	var val rune
+
+	if !s.read() {
+		if errors.Is(s.err, io.EOF) {
+			s.raiseToken(errors.New("EOF in rune literal"))
+		}
+		return nil
+	}
+
+	switch s.c {
+	case '\\':
+		if !s.read() {
+			if errors.Is(s.err, io.EOF) {
+				s.raiseToken(errors.New("EOF in rune literal"))
+			}
+			return nil
+		}
+		v, ok := escape(s.c, '\'')
+		if !ok {
+			s.raiseToken(fmt.Errorf("invalid escape sequence %q", s.c))
+			return nil
+		}
+		val = v
+
+	case '\'':
+		s.raiseToken(errors.New("empty rune literal"))
+		return nil
+
+	default:
+		val = s.c
+	}
+
+	if !s.read() {
+		if errors.Is(s.err, io.EOF) {
+			s.raiseToken(errors.New("EOF in rune literal"))
+		}
+		return nil
+	}
+	if s.c != '\'' {
+		s.raiseToken(errors.New("rune literal contains more than one rune"))
+		return nil
+	}
+
+	s.tok.Val = Int(val)
+	return s.start
+}
 
 func (s *scanner) ident() stateFunc
 
@@ -199,8 +266,6 @@ type Rparen struct{}
 type Int int64
 type Float float64
 type tring string
-type Rune rune
-type Atom string
 type Ident string
 type Oper string
 
@@ -224,4 +289,17 @@ func (err *TokenError) Error() string {
 
 func (err *TokenError) Unwrap() error {
 	return err.Err
+}
+
+func escape(c rune, q rune) (rune, bool) {
+	switch c {
+	case q, '\\':
+		return c, true
+	case 'n':
+		return '\n', true
+	case 't':
+		return '\t', true
+	default:
+		return 0, false
+	}
 }
