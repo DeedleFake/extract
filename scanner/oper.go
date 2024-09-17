@@ -2,6 +2,8 @@ package scanner
 
 var (
 	opers = setOf(
+		"(",
+		")",
 		"+",
 		"-",
 		"*",

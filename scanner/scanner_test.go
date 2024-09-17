@@ -30,7 +30,7 @@ func TestScan(t *testing.T) {
 		output []any
 	}{
 		{"Simple", `("test" 30 'a' 1.2 + :test2 Test3.push)`, []any{
-			scanner.Lparen{},
+			scanner.Oper("("),
 			scanner.String("test"),
 			scanner.Int(30),
 			scanner.Int('a'),
@@ -40,7 +40,7 @@ func TestScan(t *testing.T) {
 			scanner.Atom("Test3"),
 			scanner.Oper("."),
 			scanner.Ident("push"),
-			scanner.Rparen{},
+			scanner.Oper(")"),
 		}},
 	}
 

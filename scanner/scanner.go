@@ -132,12 +132,6 @@ func (s *Scanner) start() {
 	}
 
 	switch s.c {
-	case '(':
-		s.tok.Val = Lparen{}
-		return
-	case ')':
-		s.tok.Val = Rparen{}
-		return
 	case '"':
 		s.string()
 		return
@@ -368,8 +362,6 @@ type Token struct {
 
 // Token value type.
 type (
-	Lparen struct{}
-	Rparen struct{}
 	Int    int64
 	Float  float64
 	String string
