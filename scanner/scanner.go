@@ -289,7 +289,7 @@ func (s *Scanner) ident() {
 		}
 
 		switch s.c {
-		case '_', '.':
+		case '_':
 			s.buf.WriteRune(s.c)
 			continue
 		case '?', '!':
@@ -305,12 +305,8 @@ func (s *Scanner) ident() {
 		s.unread()
 		break
 	}
-	str := s.buf.String()
-	if strings.HasSuffix(str, ".") {
-		s.raiseToken(errors.New("identifiers must not end with \".\""))
-		return
-	}
-	s.tok.Val = Ident(str)
+
+	s.tok.Val = Ident(s.buf.String())
 }
 
 func (s *Scanner) oper() {
