@@ -271,8 +271,8 @@ func (s *scanner) ident() stateFunc {
 	}
 
 	switch s.c {
-	case '_':
-		s.buf.WriteByte('_')
+	case '_', '.':
+		s.buf.WriteRune(s.c)
 		return s.ident
 	case '?', '!':
 		s.buf.WriteRune(s.c)
