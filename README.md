@@ -3,7 +3,7 @@ Extract
 
 _Note: This project is in heavy early development and many, if not all, features described below do not actually exist yet._
 
-The Extract programming language is a procedural, statically-typed language that runs on the Go runtime. It includes features from Erlang, in particular pattern matching and process mailboxes. File structure follows Go conventions with projects being organized into modules containing packages, with, generally, one package per directory. The language is implemented via a transpiler that produces Go code.
+Extract is a functional, dynamically-typed scripting language inspired by Lisp and Elixir and running on top of the Go runtime. It has Erlang-like concurrency features and good interaction with Go.
 
 Example
 -------
@@ -11,25 +11,16 @@ Example
 As the language is still in early planning stages, this example is subject to change in backwards-incompatible ways.
 
 ```extract
-package main
+(defmodule Example
+    (def (fib 0) 0)
 
-import (
-  "fmt"
+    (def (fib 1) 1)
+
+    (def (fib n) (+
+        (fib (- n 1))
+        (fib (- n 2))
+    ))
 )
 
-func add(parent pid) {
-  select {
-  case {:add, $a, $b}:
-    parent <- {:result, a + b}
-  }
-}
-
-func main() {
-  $child = go add(self())
-  child <- {:add, 1, 2}
-  select {
-  case {:result, $v}:
-    fmt.Printf("Result: %v\n", v)
-  }
-}
+(IO.println (fib 5))
 ```
