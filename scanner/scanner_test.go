@@ -30,7 +30,16 @@ func TestScan(t *testing.T) {
 		input  string
 		output []any
 	}{
-		{"Simple", `("test" 30 'a' 1.2 push)`, []any{scanner.Lparen{}, scanner.String("test"), scanner.Int(30), scanner.Int('a'), scanner.Float(1.2), scanner.Ident("push"), scanner.Rparen{}}},
+		{"Simple", `("test" 30 'a' 1.2 push +)`, []any{
+			scanner.Lparen{},
+			scanner.String("test"),
+			scanner.Int(30),
+			scanner.Int('a'),
+			scanner.Float(1.2),
+			scanner.Ident("push"),
+			scanner.Oper("+"),
+			scanner.Rparen{},
+		}},
 	}
 
 	for _, test := range tests {

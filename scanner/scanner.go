@@ -122,6 +122,10 @@ func (s *scanner) start() stateFunc {
 		s.buf.WriteRune(s.c)
 		return s.ident
 	}
+	if maybeOper(s.c) {
+		s.buf.WriteRune(s.c)
+		return s.oper
+	}
 
 	s.raiseUnexpectedRune()
 	return nil
@@ -276,6 +280,18 @@ func (s *scanner) ident() stateFunc {
 
 	s.unread()
 	s.tok.Val = Ident(s.buf.String())
+	return s.start
+}
+
+func (s *scanner) oper() stateFunc {
+	// This has its own state to make it easier to potentially support
+	// longer operators later.
+
+	if !s.read() {
+		return nil
+	}
+
+	s.tok.Val = Oper(s.buf.String())
 	return s.start
 }
 
