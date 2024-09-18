@@ -15,7 +15,7 @@ type List struct {
 	len  int
 }
 
-func ListFrom(vals ...any) (list *List) {
+func ListOf(vals ...any) (list *List) {
 	for _, v := range slices.Backward(vals) {
 		list = list.Push(v)
 	}
@@ -87,3 +87,10 @@ type Int int
 type String string
 
 type Atom string
+
+type Ident string
+
+type ModuleIdent struct {
+	Module any
+	Ident  Ident
+}

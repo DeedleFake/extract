@@ -70,6 +70,14 @@ func (p *parser) scan() scanner.Token {
 	return p.s.Token()
 }
 
+func (p *parser) unscan(tok scanner.Token) {
+	if p.tok.Val != nil {
+		panic("unscanned twice")
+	}
+
+	p.tok = tok
+}
+
 func (p *parser) peek() any {
 	if p.tok.Val != nil {
 		return p.tok.Val
@@ -83,12 +91,23 @@ func (p *parser) peek() any {
 	return p.tok.Val
 }
 
-func (p *parser) expect(tok any) {
+func (p *parser) expect(tok any) scanner.Token {
 	got := p.scan()
-	if got != tok {
+	if got.Val != tok {
 		p.raiseUnexpectedToken(got, tok)
-		return
+		return scanner.Token{}
 	}
+	return got
+}
+
+func expect[T any](p *parser) (tok scanner.Token, v T) {
+	got := p.scan()
+	if v, ok := got.Val.(T); ok {
+		return got, v
+	}
+
+	p.raiseUnexpectedToken(got, nil)
+	return tok, v
 }
 
 func (p *parser) list() *extract.List {
@@ -103,28 +122,46 @@ func (p *parser) listInner() *extract.List {
 	for p.peek() != scanner.Oper(")") && p.peek() != nil {
 		exprs = append(exprs, p.expr())
 	}
-	return extract.ListFrom(exprs...)
+	return extract.ListOf(exprs...)
 }
 
 func (p *parser) expr() any {
-	tok := p.peek()
-	switch tok := tok.(type) {
+	tok := p.scan()
+	switch t := tok.Val.(type) {
 	case scanner.Int:
-		return extract.Int(tok)
+		return extract.Int(t)
 	case scanner.String:
-		return extract.String(tok)
+		return extract.String(t)
 	case scanner.Atom:
-		// TODO: Implement uniqification.
-		return extract.Atom(tok)
+		p.unscan(tok)
+		return p.atom()
 	}
 
-	switch tok {
+	switch tok.Val {
 	case scanner.Oper("("):
+		p.unscan(tok)
 		return p.list()
 	}
 
 	p.raiseUnexpectedToken(p.scan(), nil)
 	return nil
+}
+
+func (p *parser) atom() any {
+	_, atom := expect[scanner.Atom](p)
+	if p.peek() == scanner.Oper(".") {
+		return p.moduleident(extract.Atom(atom))
+	}
+	return extract.Atom(atom)
+}
+
+func (p *parser) moduleident(module any) extract.ModuleIdent {
+	p.expect(scanner.Oper("."))
+	_, ident := expect[scanner.Ident](p)
+	return extract.ModuleIdent{
+		Module: module,
+		Ident:  extract.Ident(ident),
+	}
 }
 
 type UnexpectedTokenError struct {
@@ -135,7 +172,7 @@ type UnexpectedTokenError struct {
 
 func (err *UnexpectedTokenError) Error() string {
 	if err.Expected == nil {
-		return fmt.Sprintf("unexpected token %q at %v:%v", err.Got, err.Line, err.Col)
+		return fmt.Sprintf("unexpected token %q (%[1]T) at %v:%v", err.Got, err.Line, err.Col)
 	}
-	return fmt.Sprintf("unexpected token %q at %v:%v, expected %q", err.Got, err.Line, err.Col, err.Expected)
+	return fmt.Sprintf("unexpected token %q (%[1]T) at %v:%v, expected %q (%[4]T)", err.Got, err.Line, err.Col, err.Expected)
 }
