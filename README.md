@@ -12,9 +12,7 @@ As the language is still in early planning stages, this example is subject to ch
 
 ```extract
 (defmodule Example
-    (def (fib 0) 0)
-
-    (def (fib 1) 1)
+    (defwhen (fib n) (lte? n 1) n)
 
     (def (fib n) (+
         (fib (- n 1))
