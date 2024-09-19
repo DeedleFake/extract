@@ -19,3 +19,13 @@ func TestList(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestCollectList(t *testing.T) {
+	list := extract.CollectList(slices.Values([]int{3, 2, 5}))
+	if list.Len() != 3 {
+		t.Fatal(list.Len())
+	}
+	if s := slices.Collect(list.All()); !slices.Equal(s, []any{3, 2, 5}) {
+		t.Fatal(s)
+	}
+}
