@@ -3,6 +3,7 @@ package extract
 import (
 	"context"
 	"fmt"
+	"iter"
 	"sync"
 )
 
@@ -68,6 +69,31 @@ func Eval(ctx context.Context, expr any, args *List) (any, context.Context) {
 			expr = args.Push(expr)
 		}
 		return expr, ctx
+	}
+}
+
+func EvalAllWithContext[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq2[any, context.Context] {
+	return func(yield func(any, context.Context) bool) {
+		for v := range seq {
+			var r any
+			r, ctx = Eval(ctx, v, nil)
+			if !yield(r, ctx) {
+				return
+			}
+			if _, ok := r.(error); ok {
+				return
+			}
+		}
+	}
+}
+
+func EvalAll[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq[any] {
+	return func(yield func(any) bool) {
+		for v := range EvalAllWithContext(ctx, seq) {
+			if !yield(v) {
+				return
+			}
+		}
 	}
 }
 

@@ -38,3 +38,11 @@ func TestSingleCall(t *testing.T) {
 		t.Fatalf("%#v", result)
 	}
 }
+
+func TestStringFormat(t *testing.T) {
+	src := `(String.format "This is a %v." "test")`
+	result := runScript(t, src)
+	if result != "This is a test." {
+		t.Fatalf("%#v", result)
+	}
+}
