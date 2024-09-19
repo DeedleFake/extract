@@ -65,6 +65,13 @@ func (list *List) Push(val any) *List {
 	}
 }
 
+func PushAll[T any](list *List, seq iter.Seq[T]) *List {
+	for v := range seq {
+		list = list.Push(v)
+	}
+	return list
+}
+
 // Tail returns the tail of the list.
 func (list *List) Tail() *List {
 	if list == nil || list.tail == nil {
