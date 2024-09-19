@@ -26,6 +26,9 @@ var listPool sync.Pool
 
 func CollectList[T any](seq iter.Seq[T]) (list *List) {
 	s, _ := listPool.Get().(*[]any)
+	if s == nil {
+		s = new([]any)
+	}
 	defer func() {
 		clear(*s)
 		*s = (*s)[:0]
