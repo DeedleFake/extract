@@ -130,9 +130,6 @@ func EvalAllWithContext[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq2[a
 			if !yield(r, ctx) {
 				return
 			}
-			if _, ok := r.(error); ok {
-				return
-			}
 		}
 	}
 }

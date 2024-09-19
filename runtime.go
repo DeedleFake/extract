@@ -60,7 +60,11 @@ func GetModule(ctx context.Context) *Module {
 }
 
 func (m *Module) Context(ctx context.Context) context.Context {
-	return context.WithValue(ctx, moduleKey{}, m)
+	ctx = context.WithValue(ctx, moduleKey{}, m)
+	for name, f := range m.decls.Range {
+		ctx = context.WithValue(ctx, name, f)
+	}
+	return ctx
 }
 
 func (m *Module) Name() Atom {

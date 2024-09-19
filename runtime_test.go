@@ -56,7 +56,7 @@ func TestDefModule(t *testing.T) {
 	(Test.inc 2)
 	`
 	result := runScript(t, src)
-	if result != 3 {
+	if result != int64(3) {
 		t.Fatalf("%#v", result)
 	}
 }
