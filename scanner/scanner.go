@@ -12,6 +12,7 @@ import (
 	"unicode"
 )
 
+// Scanner produces Extract parser tokens from an io.Reader.
 type Scanner struct {
 	r         *bufio.Reader
 	line, col int
@@ -22,6 +23,9 @@ type Scanner struct {
 	tok Token
 }
 
+// New returns a new Scanner which reads from r. The Scanner starts
+// before the first token, so the user must call [Scan] at least once
+// before accessing tokens.
 func New(r io.Reader) *Scanner {
 	return &Scanner{
 		r:    bufio.NewReader(r),
@@ -29,15 +33,22 @@ func New(r io.Reader) *Scanner {
 	}
 }
 
+// Scan advances the scanner to the next token. The current token can
+// be retrieved using [Token]. If there are no more tokens, possibly
+// because of an error, Scan returns false.
 func (s *Scanner) Scan() bool {
 	s.start()
 	return s.err == nil
 }
 
+// Token returns the current token. See [Scan].
 func (s *Scanner) Token() Token {
 	return s.tok
 }
 
+// Err returns whatever error caused the scanner to stop, or nil if
+// the scanner has not yet stopped or if the scanner stopped because
+// it completely drained the underlying io.Reader without any errors.
 func (s *Scanner) Err() error {
 	if errors.Is(s.err, io.EOF) {
 		return nil
@@ -45,6 +56,9 @@ func (s *Scanner) Err() error {
 	return s.err
 }
 
+// All returns a single-use iterator which yields all of the tokens
+// from the scanner in turn. If an error is encountered during the
+// iteration, [Err] will return it.
 func (s *Scanner) All() iter.Seq[Token] {
 	return func(yield func(Token) bool) {
 		for s.Scan() {
