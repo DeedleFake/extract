@@ -375,6 +375,11 @@ type (
 	Atom   string
 )
 
+func (t Lparen) String() string { return "(" }
+func (t Rparen) String() string { return ")" }
+func (t Dot) String() string    { return "." }
+func (t Pin) String() string    { return "\\" }
+
 // UnexpectedRuneError is yielded when an unexpected rune is found
 // during the course of scanning.
 type UnexpectedRuneError struct {
