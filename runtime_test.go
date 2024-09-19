@@ -46,3 +46,17 @@ func TestStringFormat(t *testing.T) {
 		t.Fatalf("%#v", result)
 	}
 }
+
+func TestDefModule(t *testing.T) {
+	src := `
+	(defmodule Test
+		(def (inc v) (add v 1))
+	)
+
+	(Test.inc 2)
+	`
+	result := runScript(t, src)
+	if result != 3 {
+		t.Fatalf("%#v", result)
+	}
+}

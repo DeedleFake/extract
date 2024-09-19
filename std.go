@@ -42,7 +42,7 @@ func stdString() *Module {
 	}))
 	m.decls.Store(Ident("format"), EvalFunc(func(ctx context.Context, args *List) (any, context.Context) {
 		if args.Len() == 0 {
-			return &ArgumentNumError{Num: args.Len()}, ctx
+			return &ArgumentNumError{Num: args.Len(), Expected: -1}, ctx
 		}
 
 		head, _ := Eval(ctx, args.Head(), nil)
