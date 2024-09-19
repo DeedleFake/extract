@@ -1,6 +1,7 @@
 package extract
 
 import (
+	"context"
 	"iter"
 	"slices"
 	"sync"
@@ -111,4 +112,22 @@ func (list *List) All() iter.Seq[any] {
 			cur = cur.Tail()
 		}
 	}
+}
+
+func (list *List) Value(ctx context.Context) (any, context.Context, error) {
+	if list.Len() == 0 {
+		return list, ctx, nil
+	}
+
+	return Eval(ctx, list.Head(), list.Tail())
+}
+
+func (list *List) Run(ctx context.Context) (r any, err error) {
+	for v := range list.All() {
+		r, _, err = Eval(ctx, v, nil)
+		if err != nil {
+			return r, err
+		}
+	}
+	return r, err
 }
