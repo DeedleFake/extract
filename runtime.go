@@ -22,7 +22,7 @@ func GetRuntime(ctx context.Context) *Runtime {
 }
 
 func (r *Runtime) Context() context.Context {
-	return context.WithValue(context.TODO(), runtimeKey{}, r)
+	return context.WithValue(kernel, runtimeKey{}, r)
 }
 
 func (r *Runtime) AddModule(name Atom) *Module {
@@ -48,22 +48,24 @@ func (m *Module) Name() Atom {
 	return m.name
 }
 
-func Eval(ctx context.Context, expr any, args *List) (any, context.Context, error) {
+func Eval(ctx context.Context, expr any, args *List) (any, context.Context) {
 	switch expr := expr.(type) {
 	case Evaluator:
 		return expr.Eval(ctx, args)
-	case Valuer:
-		r, err := expr.Value(ctx)
-		return r, ctx, err
 	default:
-		return expr, ctx, nil
+		if args.Len() > 0 {
+			expr = args.Push(expr)
+		}
+		return expr, ctx
 	}
 }
 
 type Evaluator interface {
-	Eval(ctx context.Context, args *List) (any, context.Context, error)
+	Eval(ctx context.Context, args *List) (any, context.Context)
 }
 
-type Valuer interface {
-	Value(ctx context.Context) (any, error)
+type EvalFunc func(ctx context.Context, args *List) (any, context.Context)
+
+func (f EvalFunc) Eval(ctx context.Context, args *List) (any, context.Context) {
+	return f(ctx, args)
 }

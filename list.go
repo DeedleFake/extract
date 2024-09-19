@@ -114,9 +114,9 @@ func (list *List) All() iter.Seq[any] {
 	}
 }
 
-func (list *List) Value(ctx context.Context) (any, context.Context, error) {
+func (list *List) Eval(ctx context.Context, args *List) (any, context.Context) {
 	if list.Len() == 0 {
-		return list, ctx, nil
+		return list, ctx
 	}
 
 	return Eval(ctx, list.Head(), list.Tail())
@@ -124,15 +124,14 @@ func (list *List) Value(ctx context.Context) (any, context.Context, error) {
 
 // Run runs a list like it's the body of a function. If any elements
 // of the list return an error when evaluated, this function returns
-// early with the value and error returned by that element. Otherwise,
-// it returns the result of the evaluation of the last element of the
-// list.
-func (list *List) Run(ctx context.Context) (r any, err error) {
+// early with that error. Otherwise, it returns the result of the
+// evaluation of the last element of the list.
+func (list *List) Run(ctx context.Context) (r any) {
 	for v := range list.All() {
-		r, ctx, err = Eval(ctx, v, nil)
-		if err != nil {
-			return r, err
+		r, ctx = Eval(ctx, v, nil)
+		if err, ok := r.(error); ok {
+			return err
 		}
 	}
-	return r, err
+	return r
 }

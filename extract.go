@@ -4,17 +4,21 @@ package extract
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"unique"
 )
 
 type Ident string
 
-func (ident Ident) Value(ctx context.Context) (any, error) {
+func (ident Ident) Eval(ctx context.Context, args *List) (any, context.Context) {
 	c := ctx.Value(ident)
 	if c == nil {
-		return nil, &NameError{Ident: ident}
+		return &NameError{Ident: ident}, ctx
 	}
-	return c, nil
+	if c, ok := c.(Ident); ok && c == ident {
+		panic(fmt.Errorf("name %q is bound to itself", string(ident)))
+	}
+	return Eval(ctx, c, args)
 }
 
 type NameError struct {
@@ -40,4 +44,32 @@ func NewAtom(str string) Atom {
 
 func (atom Atom) String() string {
 	return atom.h.Value()
+}
+
+type ArgumentNumError struct {
+	Num      int
+	Expected int
+}
+
+func (err *ArgumentNumError) Error() string {
+	if err.Expected < 0 {
+		return fmt.Sprintf("incorrect number of arguments %v", err.Num)
+	}
+	return fmt.Sprintf("incorrect number of arguments %v, expected %v", err.Num, err.Expected)
+}
+
+type TypeError struct {
+	Val      any
+	Expected []reflect.Type
+}
+
+func NewTypeError(val any, expected ...reflect.Type) *TypeError {
+	return &TypeError{
+		Val:      val,
+		Expected: expected,
+	}
+}
+
+func (err *TypeError) Error() string {
+	return fmt.Sprintf("incorrect type %T, expected one of %v", err.Val, err.Expected)
 }

@@ -8,18 +8,33 @@ import (
 	"deedles.dev/extract/parser"
 )
 
-func TestSimpleScript(t *testing.T) {
-	src := `"This is a test."`
+func runScript(t *testing.T, src string) any {
 	s, err := parser.Parse(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	r := extract.NewRuntime()
-	result, err := s.Run(r.Context())
-	if err != nil {
+	result := s.Run(r.Context())
+	if err, ok := result.(error); ok {
 		t.Fatal(err)
 	}
+
+	return result
+}
+
+func TestSimpleScript(t *testing.T) {
+	src := `"This is a test."`
+	result := runScript(t, src)
 	if result != "This is a test." {
-		t.Fatalf("%q", result)
+		t.Fatalf("%#v", result)
+	}
+}
+
+func TestSingleCall(t *testing.T) {
+	src := `(to_upper "test")`
+	result := runScript(t, src)
+	if result != "TEST" {
+		t.Fatalf("%#v", result)
 	}
 }
