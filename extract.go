@@ -3,6 +3,7 @@ package extract
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"unique"
@@ -21,17 +22,35 @@ func (ident Ident) Eval(ctx context.Context, args *List) (any, context.Context) 
 	return Eval(ctx, c, args)
 }
 
-type NameError struct {
-	Ident Ident
-}
-
-func (err *NameError) Error() string {
-	return fmt.Sprintf("%q is not bound", string(err.Ident))
-}
-
 type Ref struct {
 	In   any
-	Name any
+	Name Ident
+}
+
+func (r Ref) Eval(ctx context.Context, args *List) (any, context.Context) {
+	in, ctx := Eval(ctx, r.In, nil)
+	switch in := in.(type) {
+	case Atom:
+		runtime := GetRuntime(ctx)
+		if runtime == nil {
+			panic(errors.New("no runtime in context"))
+		}
+		m := runtime.GetModule(in)
+		if m == nil {
+			return &UndefinedModuleError{Name: in}, ctx
+		}
+		v, ok := m.Lookup(r.Name)
+		if !ok {
+			return &NameError{Ident: r.Name}, ctx
+		}
+		return Eval(ctx, v, args)
+
+	case error:
+		return in, ctx
+
+	default:
+		return NewTypeError(in, reflect.TypeFor[Atom]()), ctx
+	}
 }
 
 type Atom struct {
@@ -72,4 +91,20 @@ func NewTypeError(val any, expected ...reflect.Type) *TypeError {
 
 func (err *TypeError) Error() string {
 	return fmt.Sprintf("incorrect type %T, expected one of %v", err.Val, err.Expected)
+}
+
+type NameError struct {
+	Ident Ident
+}
+
+func (err *NameError) Error() string {
+	return fmt.Sprintf("%q is not bound", string(err.Ident))
+}
+
+type UndefinedModuleError struct {
+	Name Atom
+}
+
+func (err *UndefinedModuleError) Error() string {
+	return fmt.Sprintf("module %q not found in runtime", err.Name)
 }

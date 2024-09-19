@@ -32,7 +32,7 @@ func TestSimpleScript(t *testing.T) {
 }
 
 func TestSingleCall(t *testing.T) {
-	src := `(to_upper "test")`
+	src := `(String.to_upper "test")`
 	result := runScript(t, src)
 	if result != "TEST" {
 		t.Fatalf("%#v", result)

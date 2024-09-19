@@ -151,7 +151,7 @@ func (p *parser) expr() (expr any) {
 func (p *parser) ref(in any) extract.Ref {
 	expect[scanner.Dot](p)
 	switch name := p.expr().(type) {
-	case extract.Ident, extract.Ref:
+	case extract.Ident:
 		return extract.Ref{In: in, Name: name}
 	default:
 		p.raise(errors.New("last element of a ref must be an identifier"))

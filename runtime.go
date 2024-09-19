@@ -13,7 +13,11 @@ type Runtime struct {
 }
 
 func NewRuntime() *Runtime {
-	return new(Runtime)
+	var r Runtime
+	for name, m := range std {
+		r.modules.Store(name, m)
+	}
+	return &r
 }
 
 func GetRuntime(ctx context.Context) *Runtime {
@@ -34,18 +38,25 @@ func (r *Runtime) AddModule(name Atom) *Module {
 	return &m
 }
 
-func (r *Runtime) GetModule(name Atom) (*Module, bool) {
-	v, _ := r.modules.Load(name)
-	m, ok := v.(*Module)
-	return m, ok
+func (r *Runtime) GetModule(name Atom) *Module {
+	v, ok := r.modules.Load(name)
+	if !ok {
+		return nil
+	}
+	return v.(*Module)
 }
 
 type Module struct {
-	name Atom
+	name  Atom
+	decls sync.Map // map[Ident]any
 }
 
 func (m *Module) Name() Atom {
 	return m.name
+}
+
+func (m *Module) Lookup(ident Ident) (any, bool) {
+	return m.decls.Load(ident)
 }
 
 func Eval(ctx context.Context, expr any, args *List) (any, context.Context) {
