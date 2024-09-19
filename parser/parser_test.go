@@ -38,7 +38,7 @@ func TestParse(t *testing.T) {
 	}{
 		{"Simple", `(IO.println "This is a test.")`, extract.ListOf(
 			extract.ListOf(
-				extract.Ref{In: extract.Atom("IO"), Name: extract.Ident("println")},
+				extract.Ref{In: extract.NewAtom("IO"), Name: extract.Ident("println")},
 				"This is a test.",
 			),
 		)},

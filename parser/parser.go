@@ -137,7 +137,7 @@ func (p *parser) expr() (expr any) {
 	case scanner.String:
 		expr = string(t)
 	case scanner.Atom:
-		expr = extract.Atom(t)
+		expr = extract.NewAtom(string(t))
 	case scanner.Ident:
 		expr = extract.Ident(t)
 	case scanner.Lparen:
