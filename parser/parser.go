@@ -131,7 +131,6 @@ func (p *parser) listInner() *extract.List {
 
 func (p *parser) expr() (expr any) {
 	tok := p.scan()
-	fmt.Println(tok)
 	switch t := tok.Val.(type) {
 	case scanner.Int:
 		expr = int64(t)
