@@ -25,11 +25,11 @@ func ListOf(vals ...any) (list *List) {
 var listPool sync.Pool
 
 func CollectList[T any](seq iter.Seq[T]) (list *List) {
-	s, _ := listPool.Get().([]any)
+	s, _ := listPool.Get().(*[]any)
 	defer func() {
-		clear(s)
-		s = s[:0]
-		listPool.Put(s)
+		clear(*s)
+		*s = (*s)[:0]
+		listPool.Put(&s)
 	}()
 
 	anys := func(yield func(any) bool) {
@@ -39,8 +39,8 @@ func CollectList[T any](seq iter.Seq[T]) (list *List) {
 			}
 		}
 	}
-	s = slices.AppendSeq(s, anys)
-	return ListOf(s...)
+	*s = slices.AppendSeq(*s, anys)
+	return ListOf((*s)...)
 }
 
 // Head returns the value at the head of the list. In other words, the

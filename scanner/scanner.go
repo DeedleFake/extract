@@ -330,6 +330,7 @@ func (s *Scanner) rune() {
 }
 
 func (s *Scanner) ident() {
+loop:
 	for {
 		if !s.read() {
 			return
@@ -341,7 +342,7 @@ func (s *Scanner) ident() {
 			continue
 		case '?', '!':
 			s.buf.WriteRune(s.c)
-			break
+			break loop
 		}
 
 		if (s.c >= 'a' && s.c <= 'z') || (s.c >= 'A' && s.c <= 'Z') || (s.c >= '0' && s.c <= '9') {
