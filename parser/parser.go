@@ -95,15 +95,6 @@ func (p *parser) peek() any {
 	return p.tok.Val
 }
 
-func (p *parser) expect(tok any) scanner.Token {
-	got := p.scan()
-	if got.Val != tok {
-		p.raiseUnexpectedToken(got, tok)
-		return scanner.Token{}
-	}
-	return got
-}
-
 func expect[T any](p *parser) (tok scanner.Token, v T) {
 	got := p.scan()
 	if v, ok := got.Val.(T); ok {
