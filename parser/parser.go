@@ -1,3 +1,4 @@
+// Package parser implements a parser for Extract code.
 package parser
 
 import (
@@ -9,10 +10,12 @@ import (
 	"deedles.dev/extract/scanner"
 )
 
+// Parse parses an Extract script from r.
 func Parse(r io.Reader) (*extract.List, error) {
 	return ParseScanner(scanner.New(r))
 }
 
+// ParseScanner parses an Extract script from s.
 func ParseScanner(s *scanner.Scanner) (*extract.List, error) {
 	p := parser{s: s}
 	return p.Parse()
@@ -166,6 +169,10 @@ func (p *parser) ref(in any) extract.Ref {
 	}
 }
 
+// UnexpectedTokenError is returned from an attempt to parse a script
+// if the script has a token somewhere that it shouldn't be. If there
+// was a specific token that was supposed to be there, it will be
+// indicated with the Expected field.
 type UnexpectedTokenError struct {
 	Line, Col int
 	Got       any
