@@ -82,15 +82,11 @@ func (list *List) All() iter.Seq[any] {
 	}
 }
 
-type Int int
-
-type String string
-
 type Atom string
 
 type Ident string
 
-type ModuleIdent struct {
-	Module any
-	Ident  Ident
+type Ref struct {
+	In   any
+	Name any
 }

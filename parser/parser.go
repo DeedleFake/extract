@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -125,39 +126,43 @@ func (p *parser) listInner() *extract.List {
 	return extract.ListOf(exprs...)
 }
 
-func (p *parser) expr() any {
+func (p *parser) expr() (expr any) {
 	tok := p.scan()
+	fmt.Println(tok)
 	switch t := tok.Val.(type) {
 	case scanner.Int:
-		return extract.Int(t)
+		expr = int64(t)
+	case scanner.Float:
+		expr = float64(t)
 	case scanner.String:
-		return extract.String(t)
+		expr = string(t)
 	case scanner.Atom:
-		p.unscan(tok)
-		return p.atom()
+		expr = extract.Atom(t)
+	case scanner.Ident:
+		expr = extract.Ident(t)
 	case scanner.Lparen:
 		p.unscan(tok)
-		return p.list()
+		expr = p.list()
+	default:
+		p.raiseUnexpectedToken(p.scan(), nil)
+		return nil
 	}
 
-	p.raiseUnexpectedToken(p.scan(), nil)
-	return nil
-}
-
-func (p *parser) atom() any {
-	_, atom := expect[scanner.Atom](p)
 	if p.peek() == (scanner.Dot{}) {
-		return p.moduleident(extract.Atom(atom))
+		expr = p.ref(expr)
 	}
-	return extract.Atom(atom)
+
+	return expr
 }
 
-func (p *parser) moduleident(module any) extract.ModuleIdent {
+func (p *parser) ref(in any) extract.Ref {
 	expect[scanner.Dot](p)
-	_, ident := expect[scanner.Ident](p)
-	return extract.ModuleIdent{
-		Module: module,
-		Ident:  extract.Ident(ident),
+	switch name := p.expr().(type) {
+	case extract.Ident, extract.Ref:
+		return extract.Ref{In: in, Name: name}
+	default:
+		p.raise(errors.New("last element of a ref must be an identifier"))
+		return extract.Ref{}
 	}
 }
 

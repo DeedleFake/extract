@@ -38,8 +38,8 @@ func TestParse(t *testing.T) {
 	}{
 		{"Simple", `(IO.println "This is a test.")`, extract.ListOf(
 			extract.ListOf(
-				extract.ModuleIdent{Module: extract.Atom("IO"), Ident: extract.Ident("println")},
-				extract.String("This is a test."),
+				extract.Ref{In: extract.Atom("IO"), Name: extract.Ident("println")},
+				"This is a test.",
 			),
 		)},
 	}
