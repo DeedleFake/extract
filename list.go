@@ -122,9 +122,14 @@ func (list *List) Value(ctx context.Context) (any, context.Context, error) {
 	return Eval(ctx, list.Head(), list.Tail())
 }
 
+// Run runs a list like it's the body of a function. If any elements
+// of the list return an error when evaluated, this function returns
+// early with the value and error returned by that element. Otherwise,
+// it returns the result of the evaluation of the last element of the
+// list.
 func (list *List) Run(ctx context.Context) (r any, err error) {
 	for v := range list.All() {
-		r, _, err = Eval(ctx, v, nil)
+		r, ctx, err = Eval(ctx, v, nil)
 		if err != nil {
 			return r, err
 		}
