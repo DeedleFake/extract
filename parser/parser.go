@@ -111,15 +111,15 @@ func expect[T any](p *parser) (tok scanner.Token, v T) {
 }
 
 func (p *parser) list() *extract.List {
-	p.expect(scanner.Oper("("))
+	expect[scanner.Lparen](p)
 	list := p.listInner()
-	p.expect(scanner.Oper(")"))
+	expect[scanner.Rparen](p)
 	return list
 }
 
 func (p *parser) listInner() *extract.List {
 	var exprs []any
-	for p.peek() != scanner.Oper(")") && p.peek() != nil {
+	for p.peek() != (scanner.Rparen{}) && p.peek() != nil {
 		exprs = append(exprs, p.expr())
 	}
 	return extract.ListOf(exprs...)
@@ -135,10 +135,7 @@ func (p *parser) expr() any {
 	case scanner.Atom:
 		p.unscan(tok)
 		return p.atom()
-	}
-
-	switch tok.Val {
-	case scanner.Oper("("):
+	case scanner.Lparen:
 		p.unscan(tok)
 		return p.list()
 	}
@@ -149,14 +146,14 @@ func (p *parser) expr() any {
 
 func (p *parser) atom() any {
 	_, atom := expect[scanner.Atom](p)
-	if p.peek() == scanner.Oper(".") {
+	if p.peek() == (scanner.Dot{}) {
 		return p.moduleident(extract.Atom(atom))
 	}
 	return extract.Atom(atom)
 }
 
 func (p *parser) moduleident(module any) extract.ModuleIdent {
-	p.expect(scanner.Oper("."))
+	expect[scanner.Dot](p)
 	_, ident := expect[scanner.Ident](p)
 	return extract.ModuleIdent{
 		Module: module,

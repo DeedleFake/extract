@@ -132,6 +132,15 @@ func (s *Scanner) start() {
 	}
 
 	switch s.c {
+	case '(':
+		s.tok.Val = Lparen{}
+		return
+	case ')':
+		s.tok.Val = Rparen{}
+		return
+	case '.':
+		s.tok.Val = Dot{}
+		return
 	case '"':
 		s.string()
 		return
@@ -160,11 +169,6 @@ func (s *Scanner) start() {
 	if s.c >= 'A' && s.c <= 'Z' {
 		s.buf.WriteRune(s.c)
 		s.atom()
-		return
-	}
-	if maybeOper(s.c) {
-		s.buf.WriteRune(s.c)
-		s.oper()
 		return
 	}
 
@@ -335,12 +339,6 @@ func (s *Scanner) ident() {
 	s.tok.Val = Ident(s.buf.String())
 }
 
-func (s *Scanner) oper() {
-	// This has its own state to make it easier to potentially support
-	// longer operators later.
-	s.tok.Val = Oper(s.buf.String())
-}
-
 func (s *Scanner) escape(q rune) {
 	switch s.c {
 	case q, '\\':
@@ -362,11 +360,13 @@ type Token struct {
 
 // Token value type.
 type (
+	Lparen struct{}
+	Rparen struct{}
+	Dot    struct{}
 	Int    int64
 	Float  float64
 	String string
 	Ident  string
-	Oper   string
 	Atom   string
 )
 
