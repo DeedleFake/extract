@@ -141,6 +141,9 @@ func (s *Scanner) start() {
 	case '.':
 		s.tok.Val = Dot{}
 		return
+	case '\\':
+		s.tok.Val = Pin{}
+		return
 	case '"':
 		s.string()
 		return
@@ -363,6 +366,8 @@ type (
 	Lparen struct{}
 	Rparen struct{}
 	Dot    struct{}
+	Pin    struct{}
+
 	Int    int64
 	Float  float64
 	String string
