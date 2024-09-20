@@ -16,6 +16,8 @@ type List struct {
 	len  int
 }
 
+// ListOf returns a list containing the values provided in the same
+// order.
 func ListOf(vals ...any) (list *List) {
 	for _, v := range slices.Backward(vals) {
 		list = list.Push(v)
@@ -25,6 +27,8 @@ func ListOf(vals ...any) (list *List) {
 
 var listPool sync.Pool
 
+// CollectList creates a new list from the elements of seq in the same
+// order that they are yielded.
 func CollectList[T any](seq iter.Seq[T]) (list *List) {
 	s, _ := listPool.Get().(*[]any)
 	if s == nil {
@@ -68,6 +72,9 @@ func (list *List) Push(val any) *List {
 	}
 }
 
+// PushAll pushes all of the elements of seq onto list and returns the
+// new list that results. Note that the elements will be in the
+// reversed order from that which they are yielded in.
 func PushAll[T any](list *List, seq iter.Seq[T]) *List {
 	for v := range seq {
 		list = list.Push(v)

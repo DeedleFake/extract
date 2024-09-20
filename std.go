@@ -8,12 +8,14 @@ import (
 	"strings"
 )
 
+// std is the Extract standard library in the form of a map of module
+// names to modules.
 var std = map[Atom]*Module{
-	NewAtom("String"): stdString(),
+	MakeAtom("String"): stdString(),
 }
 
 func stdString() *Module {
-	m := Module{name: NewAtom("String")}
+	m := Module{name: MakeAtom("String")}
 	m.decls.Store(Ident("to_upper"), EvalFunc(func(ctx context.Context, args *List) (any, context.Context) {
 		if args.Len() != 1 {
 			return &ArgumentNumError{Num: args.Len(), Expected: 1}, ctx

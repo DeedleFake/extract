@@ -130,7 +130,7 @@ func (p *parser) expr() (expr any) {
 	case scanner.String:
 		expr = string(t)
 	case scanner.Atom:
-		expr = extract.NewAtom(string(t))
+		expr = extract.MakeAtom(string(t))
 	case scanner.Ident:
 		expr = extract.Ident(t)
 	case scanner.Lparen:

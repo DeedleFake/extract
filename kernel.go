@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+// kernel is the base scope containing the built-in, top-level
+// functions.
 var kernel = func() context.Context {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, Ident("defmodule"), EvalFunc(kernelDefModule))
