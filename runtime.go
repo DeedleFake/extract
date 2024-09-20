@@ -2,7 +2,8 @@ package extract
 
 import (
 	"context"
-	"sync"
+
+	"deedles.dev/xsync"
 )
 
 type (
@@ -15,7 +16,7 @@ type (
 // A runtime is necessary to properly evaluate Extract code. To do so,
 // use the context returned by a runtime's [Context] method.
 type Runtime struct {
-	modules sync.Map // map[Atom]*Module
+	modules xsync.Map[Atom, *Module]
 }
 
 // NewRuntime returns a runtime that has been initialized with the
@@ -57,11 +58,8 @@ func (r *Runtime) AddModule(name Atom) *Module {
 // GetModule finds a declared module with the given name. If no such
 // module has been declared, it returns nil.
 func (r *Runtime) GetModule(name Atom) *Module {
-	v, ok := r.modules.Load(name)
-	if !ok {
-		return nil
-	}
-	return v.(*Module)
+	v, _ := r.modules.Load(name)
+	return v
 }
 
 // Module is a basic building block of an Extract program. All
@@ -70,7 +68,7 @@ func (r *Runtime) GetModule(name Atom) *Module {
 // declared.
 type Module struct {
 	name  Atom
-	decls sync.Map // map[Ident]any
+	decls xsync.Map[Ident, any]
 }
 
 // GetModule gets the current module from the context. If the context
