@@ -32,6 +32,9 @@ func kernelDefModule(ctx context.Context, args *List) (any, context.Context) {
 	}
 
 	m := runtime.AddModule(name)
+	if m == nil {
+		return fmt.Errorf("attempted to redeclare module %q", name), ctx
+	}
 	r := args.Tail().Run(m.Context(ctx))
 	if err, ok := r.(error); ok {
 		return err, ctx
@@ -46,7 +49,7 @@ func kernelDef(ctx context.Context, args *List) (any, context.Context) {
 
 	m := GetModule(ctx)
 	if m == nil {
-		panic(errors.New("def used outside of module"))
+		return errors.New("def used outside of module"), ctx
 	}
 
 	var name Ident

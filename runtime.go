@@ -2,7 +2,6 @@ package extract
 
 import (
 	"context"
-	"fmt"
 	"sync"
 )
 
@@ -36,7 +35,7 @@ func (r *Runtime) AddModule(name Atom) *Module {
 	m := Module{name: name}
 	_, ok := r.modules.LoadOrStore(name, &m)
 	if ok {
-		panic(fmt.Errorf("module %q already registered with runtime", name))
+		return nil
 	}
 	return &m
 }
