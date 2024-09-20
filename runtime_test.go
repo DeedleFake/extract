@@ -60,3 +60,18 @@ func TestDefModule(t *testing.T) {
 		t.Fatalf("%#v", result)
 	}
 }
+
+func BenchmarkDefModule(b *testing.B) {
+	for range b.N {
+		src := `
+		(defmodule Test
+			(def (inc v) (add v 1))
+		)
+
+		(Test.inc 2)
+		`
+		s, _ := parser.Parse(strings.NewReader(src))
+		r := extract.NewRuntime()
+		s.Run(r.Context())
+	}
+}
