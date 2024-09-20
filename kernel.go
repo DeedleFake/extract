@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 )
 
 var kernel = func() context.Context {
@@ -74,22 +73,24 @@ func kernelDef(ctx context.Context, args *List) (any, context.Context) {
 		}
 
 		tail := pattern.Tail()
+		params := make([]Ident, 0, tail.Len())
 		for arg := range tail.All() {
-			if _, ok := arg.(Ident); !ok {
+			name, ok := arg.(Ident)
+			if !ok {
 				return NewTypeError(arg, reflect.TypeFor[Ident]()), ctx
 			}
+			params = append(params, name)
 		}
 
 		f = EvalFunc(func(fctx context.Context, fargs *List) (any, context.Context) {
-			if fargs.Len() != tail.Len() {
+			if fargs.Len() != len(params) {
 				return &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}, fctx
 			}
 
-			evalargs := slices.Collect(EvalAll(ctx, fargs.All()))
 			ectx := m.Context(fctx)
 			var i int
-			for name := range tail.All() {
-				ectx = context.WithValue(ectx, name, evalargs[i])
+			for arg := range EvalAll(ctx, fargs.All()) {
+				ectx = context.WithValue(ectx, params[i], arg)
 				i++
 			}
 
