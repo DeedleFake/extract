@@ -9,12 +9,22 @@ import (
 // kernel is the base scope containing the built-in, top-level
 // functions.
 var kernel = func() (ll *localList) {
+	ll = ll.Push(MakeIdent("list"), EvalFunc(kernelList))
 	ll = ll.Push(MakeIdent("defmodule"), EvalFunc(kernelDefModule))
 	ll = ll.Push(MakeIdent("def"), EvalFunc(kernelDef))
 	ll = ll.Push(MakeIdent("add"), EvalFunc(kernelAdd))
 	ll = ll.Push(MakeIdent("sub"), EvalFunc(kernelSub))
 	return ll
 }()
+
+func kernelList(env *Env, args *List) (*Env, any) {
+	if args.Len() == 0 {
+		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
+	}
+
+	list := CollectList(EvalAll(env, args.All()))
+	return env, list
+}
 
 func kernelDefModule(env *Env, args *List) (*Env, any) {
 	if args.Len() == 0 {
