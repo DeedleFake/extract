@@ -120,14 +120,6 @@ func (list *List) All() iter.Seq[any] {
 	}
 }
 
-func (list *List) Eval(r *Runtime, args *List) (*Runtime, any) {
-	if list.Len() == 0 {
-		return r, list
-	}
-
-	return Eval(r, list.Head(), list.Tail())
-}
-
 // Run runs a list like it's the body of a function. If any elements
 // of the list return an error when evaluated, this function returns
 // early with that error. Otherwise, it returns the result of the

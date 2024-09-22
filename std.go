@@ -15,7 +15,7 @@ var std = map[Atom]*Module{
 
 func stdString() *Module {
 	m := Module{name: MakeAtom("String")}
-	m.decls.Store(Ident("to_upper"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("to_upper"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() != 1 {
 			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
@@ -28,7 +28,7 @@ func stdString() *Module {
 
 		return r, strings.ToUpper(str)
 	}))
-	m.decls.Store(Ident("to_lower"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("to_lower"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() != 1 {
 			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
@@ -41,7 +41,7 @@ func stdString() *Module {
 
 		return r, strings.ToLower(str)
 	}))
-	m.decls.Store(Ident("format"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("format"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() == 0 {
 			return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
 		}

@@ -9,10 +9,10 @@ import (
 // kernel is the base scope containing the built-in, top-level
 // functions.
 var kernel = func() (ll *localList) {
-	ll = ll.Push("defmodule", EvalFunc(kernelDefModule))
-	ll = ll.Push("def", EvalFunc(kernelDef))
-	ll = ll.Push("add", EvalFunc(kernelAdd))
-	ll = ll.Push("sub", EvalFunc(kernelSub))
+	ll = ll.Push(MakeIdent("defmodule"), EvalFunc(kernelDefModule))
+	ll = ll.Push(MakeIdent("def"), EvalFunc(kernelDef))
+	ll = ll.Push(MakeIdent("add"), EvalFunc(kernelAdd))
+	ll = ll.Push(MakeIdent("sub"), EvalFunc(kernelSub))
 	return ll
 }()
 
@@ -62,15 +62,16 @@ func kernelDef(r *Runtime, args *List) (*Runtime, any) {
 			return fr, args.Tail().Run(fr)
 		})
 
-	case *List:
+	case Call:
 		if pattern.Len() == 0 {
 			return r, errors.New("function pattern list must contain at least one element")
 		}
 
-		name, _ = pattern.Head().(Ident)
-		if name == "" {
+		n, ok := pattern.Head().(Ident)
+		if !ok {
 			return r, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
+		name = n
 
 		tail := pattern.Tail()
 		params := make([]Ident, 0, tail.Len())
@@ -102,7 +103,7 @@ func kernelDef(r *Runtime, args *List) (*Runtime, any) {
 
 	_, ok := m.decls.LoadOrStore(name, f)
 	if ok {
-		return r, fmt.Errorf("attempted to redeclare function %q", string(name))
+		return r, fmt.Errorf("attempted to redeclare function %q", name)
 	}
 	return r, f
 }

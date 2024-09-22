@@ -8,10 +8,33 @@ import (
 	"unique"
 )
 
-// Ident is an identifier for bound data, i.e. a declared variable/function.
-//
-// The parser will create these for identifiers in the source code.
-type Ident string
+// Call is a function call. It calls the first element of the
+// underlying list with the remainder of the list as arguments. If the
+// list is empty, it just returns the list.
+type Call struct {
+	*List
+}
+
+func (call Call) Eval(r *Runtime, args *List) (*Runtime, any) {
+	if call.Len() == 0 {
+		return r, call
+	}
+
+	return Eval(r, call.Head(), call.Tail())
+}
+
+// Ident is an identifier for bound data, i.e. a declared
+// variable/function.
+type Ident struct {
+	line, col int
+	h         unique.Handle[string]
+}
+
+func MakeIdent(str string) Ident {
+	return Ident{
+		h: unique.Make(str),
+	}
+}
 
 func (ident Ident) Eval(r *Runtime, args *List) (*Runtime, any) {
 	c, ok := r.Lookup(ident)
@@ -19,14 +42,16 @@ func (ident Ident) Eval(r *Runtime, args *List) (*Runtime, any) {
 		return r, &NameError{Ident: ident}
 	}
 	if c, ok := c.(Ident); ok && c == ident {
-		panic(fmt.Errorf("name %q is bound to itself", string(ident)))
+		panic(fmt.Errorf("name %q is bound to itself", ident))
 	}
 	return Eval(r, c, args)
 }
 
+func (ident Ident) String() string {
+	return ident.h.Value()
+}
+
 // Ref is an access of an identifier namespaced with a module.
-//
-// The parser will create these for expressions of the form `a.b`.
 type Ref struct {
 	// In the module that the identifier is being accessed inside of. It
 	// can be any expression but it must return an atom or an error.
@@ -125,7 +150,7 @@ type NameError struct {
 }
 
 func (err *NameError) Error() string {
-	return fmt.Sprintf("%q is not bound", string(err.Ident))
+	return fmt.Sprintf("%q is not bound", err.Ident)
 }
 
 // UndefinedModuleError is returned when an attempt is made to access
