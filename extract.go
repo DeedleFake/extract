@@ -15,12 +15,12 @@ type Call struct {
 	*List
 }
 
-func (call Call) Eval(r *Runtime, args *List) (*Runtime, any) {
+func (call Call) Eval(env *Env, args *List) (*Env, any) {
 	if call.Len() == 0 {
-		return r, call
+		return env, call
 	}
 
-	return Eval(r, call.Head(), call.Tail())
+	return Eval(env, call.Head(), call.Tail())
 }
 
 // Ident is an identifier for bound data, i.e. a declared
@@ -36,15 +36,15 @@ func MakeIdent(str string) Ident {
 	}
 }
 
-func (ident Ident) Eval(r *Runtime, args *List) (*Runtime, any) {
-	c, ok := r.Lookup(ident)
+func (ident Ident) Eval(env *Env, args *List) (*Env, any) {
+	c, ok := env.Lookup(ident)
 	if !ok {
-		return r, &NameError{Ident: ident}
+		return env, &NameError{Ident: ident}
 	}
 	if c, ok := c.(Ident); ok && c == ident {
 		panic(fmt.Errorf("name %q is bound to itself", ident))
 	}
-	return Eval(r, c, args)
+	return Eval(env, c, args)
 }
 
 func (ident Ident) String() string {
@@ -61,25 +61,25 @@ type Ref struct {
 	Name Ident
 }
 
-func (ref Ref) Eval(r *Runtime, args *List) (*Runtime, any) {
-	r, in := Eval(r, ref.In, nil)
+func (ref Ref) Eval(env *Env, args *List) (*Env, any) {
+	env, in := Eval(env, ref.In, nil)
 	switch in := in.(type) {
 	case Atom:
-		m := r.GetModule(in)
+		m := env.GetModule(in)
 		if m == nil {
-			return r, &UndefinedModuleError{Name: in}
+			return env, &UndefinedModuleError{Name: in}
 		}
 		v, ok := m.Lookup(ref.Name)
 		if !ok {
-			return r, &NameError{Ident: ref.Name}
+			return env, &NameError{Ident: ref.Name}
 		}
-		return Eval(r, v, args)
+		return Eval(env, v, args)
 
 	case error:
-		return r, in
+		return env, in
 
 	default:
-		return r, NewTypeError(in, reflect.TypeFor[Atom]())
+		return env, NewTypeError(in, reflect.TypeFor[Atom]())
 	}
 }
 
@@ -168,26 +168,26 @@ func (err *UndefinedModuleError) Error() string {
 // arguments were provided, the value is returned as the first element
 // of a list containing it and the arguments provided. Otherwise, the
 // value is returned unmodified.
-func Eval(r *Runtime, expr any, args *List) (*Runtime, any) {
+func Eval(env *Env, expr any, args *List) (*Env, any) {
 	switch expr := expr.(type) {
 	case Evaluator:
-		return expr.Eval(r, args)
+		return expr.Eval(env, args)
 	default:
 		if args.Len() > 0 {
 			expr = args.Push(expr)
 		}
-		return r, expr
+		return env, expr
 	}
 }
 
-// EvalAllWithRuntime is like [EvalAll], but also yields the [Runtime]
+// EvalAllWithRuntime is like [EvalAll], but also yields the [Env]
 // that results from each elements evaluation.
-func EvalAllWithRuntime[T any](r *Runtime, seq iter.Seq[T]) iter.Seq2[*Runtime, any] {
-	return func(yield func(*Runtime, any) bool) {
+func EvalAllWithRuntime[T any](env *Env, seq iter.Seq[T]) iter.Seq2[*Env, any] {
+	return func(yield func(*Env, any) bool) {
 		for v := range seq {
 			var ret any
-			r, ret = Eval(r, v, nil)
-			if !yield(r, ret) {
+			env, ret = Eval(env, v, nil)
+			if !yield(env, ret) {
 				return
 			}
 		}
@@ -196,11 +196,11 @@ func EvalAllWithRuntime[T any](r *Runtime, seq iter.Seq[T]) iter.Seq2[*Runtime, 
 
 // EvalAll returns an iterator that evaluates each element in seq
 // using [Eval] and yields the results. It uses r as the base
-// [Runtime] for the evaluation and updates it with the result of each
+// [Env] for the evaluation and updates it with the result of each
 // elements evaluation.
-func EvalAll[T any](r *Runtime, seq iter.Seq[T]) iter.Seq[any] {
+func EvalAll[T any](env *Env, seq iter.Seq[T]) iter.Seq[any] {
 	return func(yield func(any) bool) {
-		for _, v := range EvalAllWithRuntime(r, seq) {
+		for _, v := range EvalAllWithRuntime(env, seq) {
 			if !yield(v) {
 				return
 			}
@@ -217,12 +217,12 @@ type Evaluator interface {
 	// made to it.
 	//
 	// Most implementations will simply return the Runtime unmodified.
-	Eval(r *Runtime, args *List) (*Runtime, any)
+	Eval(env *Env, args *List) (*Env, any)
 }
 
 // EvalFunc is a func wrapper for [Evaluator].
-type EvalFunc func(r *Runtime, args *List) (*Runtime, any)
+type EvalFunc func(env *Env, args *List) (*Env, any)
 
-func (f EvalFunc) Eval(r *Runtime, args *List) (*Runtime, any) {
-	return f(r, args)
+func (f EvalFunc) Eval(env *Env, args *List) (*Env, any) {
+	return f(env, args)
 }

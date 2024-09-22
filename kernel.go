@@ -16,37 +16,37 @@ var kernel = func() (ll *localList) {
 	return ll
 }()
 
-func kernelDefModule(r *Runtime, args *List) (*Runtime, any) {
+func kernelDefModule(env *Env, args *List) (*Env, any) {
 	if args.Len() == 0 {
-		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
+		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
 	name, ok := args.Head().(Atom)
 	if !ok {
-		return r, NewTypeError(name, reflect.TypeFor[Atom]())
+		return env, NewTypeError(name, reflect.TypeFor[Atom]())
 	}
 
-	m := r.AddModule(name)
+	m := env.AddModule(name)
 	if m == nil {
-		return r, fmt.Errorf("attempted to redeclare module %q", name)
+		return env, fmt.Errorf("attempted to redeclare module %q", name)
 	}
-	mr := *r
+	mr := *env
 	mr.currentModule = m
 	body := args.Tail().Run(&mr)
 	if err, ok := body.(error); ok {
-		return r, err
+		return env, err
 	}
-	return r, name
+	return env, name
 }
 
-func kernelDef(r *Runtime, args *List) (*Runtime, any) {
+func kernelDef(env *Env, args *List) (*Env, any) {
 	if args.Len() < 2 {
-		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
+		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
-	m := r.currentModule
+	m := env.currentModule
 	if m == nil {
-		return r, errors.New("def used outside of module")
+		return env, errors.New("def used outside of module")
 	}
 
 	var name Ident
@@ -54,22 +54,22 @@ func kernelDef(r *Runtime, args *List) (*Runtime, any) {
 	switch pattern := args.Head().(type) {
 	case Ident:
 		name = pattern
-		f = EvalFunc(func(fr *Runtime, args *List) (*Runtime, any) {
+		f = EvalFunc(func(fenv *Env, args *List) (*Env, any) {
 			if args.Len() != 0 {
-				return fr, &ArgumentNumError{Num: args.Len(), Expected: 0}
+				return fenv, &ArgumentNumError{Num: args.Len(), Expected: 0}
 			}
 
-			return fr, args.Tail().Run(fr)
+			return fenv, args.Tail().Run(fenv)
 		})
 
 	case Call:
 		if pattern.Len() == 0 {
-			return r, errors.New("function pattern list must contain at least one element")
+			return env, errors.New("function pattern list must contain at least one element")
 		}
 
 		n, ok := pattern.Head().(Ident)
 		if !ok {
-			return r, NewTypeError(name, reflect.TypeFor[Ident]())
+			return env, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
 		name = n
 
@@ -78,44 +78,44 @@ func kernelDef(r *Runtime, args *List) (*Runtime, any) {
 		for arg := range tail.All() {
 			name, ok := arg.(Ident)
 			if !ok {
-				return r, NewTypeError(arg, reflect.TypeFor[Ident]())
+				return env, NewTypeError(arg, reflect.TypeFor[Ident]())
 			}
 			params = append(params, name)
 		}
 
-		f = EvalFunc(func(fr *Runtime, fargs *List) (*Runtime, any) {
+		f = EvalFunc(func(fenv *Env, fargs *List) (*Env, any) {
 			if fargs.Len() != len(params) {
-				return fr, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
+				return fenv, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
 			}
 
 			var i int
-			for arg := range EvalAll(r, fargs.All()) {
-				fr = fr.Let(params[i], arg)
+			for arg := range EvalAll(env, fargs.All()) {
+				fenv = fenv.Let(params[i], arg)
 				i++
 			}
 
-			return fr, args.Tail().Run(fr)
+			return fenv, args.Tail().Run(fenv)
 		})
 
 	default:
-		return r, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
+		return env, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
 	}
 
 	_, ok := m.decls.LoadOrStore(name, f)
 	if ok {
-		return r, fmt.Errorf("attempted to redeclare function %q", name)
+		return env, fmt.Errorf("attempted to redeclare function %q", name)
 	}
-	return r, f
+	return env, f
 }
 
-func kernelAdd(r *Runtime, args *List) (*Runtime, any) {
+func kernelAdd(env *Env, args *List) (*Env, any) {
 	if args.Len() < 2 {
-		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
+		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
 	var total int64
 	var totalf float64
-	for arg := range EvalAll(r, args.All()) {
+	for arg := range EvalAll(env, args.All()) {
 		switch arg := arg.(type) {
 		case int64:
 			total += arg
@@ -123,25 +123,25 @@ func kernelAdd(r *Runtime, args *List) (*Runtime, any) {
 			totalf += arg
 		case error:
 			// TODO: Don't handle errors like this?
-			return r, arg
+			return env, arg
 		default:
-			return r, NewTypeError(arg, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
+			return env, NewTypeError(arg, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 		}
 	}
 
 	if totalf != 0 {
-		return r, float64(total) + totalf
+		return env, float64(total) + totalf
 	}
-	return r, total
+	return env, total
 }
 
-func kernelSub(r *Runtime, args *List) (*Runtime, any) {
+func kernelSub(env *Env, args *List) (*Env, any) {
 	if args.Len() != 2 {
-		return r, &ArgumentNumError{Num: args.Len(), Expected: 2}
+		return env, &ArgumentNumError{Num: args.Len(), Expected: 2}
 	}
 
-	_, first := Eval(r, args.Head(), nil)
-	_, second := Eval(r, args.Tail().Head(), nil)
+	_, first := Eval(env, args.Head(), nil)
+	_, second := Eval(env, args.Tail().Head(), nil)
 
 	var i int64
 	var f float64
@@ -151,21 +151,21 @@ func kernelSub(r *Runtime, args *List) (*Runtime, any) {
 	case float64:
 		f = a
 	default:
-		return r, NewTypeError(a, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
+		return env, NewTypeError(a, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 	}
 
 	switch b := second.(type) {
 	case int64:
 		if f != 0 {
-			return r, f - float64(b)
+			return env, f - float64(b)
 		}
-		return r, i - b
+		return env, i - b
 	case float64:
 		if i != 0 {
-			return r, float64(i) - b
+			return env, float64(i) - b
 		}
-		return r, f - b
+		return env, f - b
 	default:
-		return r, NewTypeError(b, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
+		return env, NewTypeError(b, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 	}
 }

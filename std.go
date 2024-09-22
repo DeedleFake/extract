@@ -15,45 +15,45 @@ var std = map[Atom]*Module{
 
 func stdString() *Module {
 	m := Module{name: MakeAtom("String")}
-	m.decls.Store(MakeIdent("to_upper"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("to_upper"), EvalFunc(func(env *Env, args *List) (*Env, any) {
 		if args.Len() != 1 {
-			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
+			return env, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
 
-		_, head := Eval(r, args.Head(), nil)
+		_, head := Eval(env, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return r, NewTypeError(head, reflect.TypeFor[string]())
+			return env, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		return r, strings.ToUpper(str)
+		return env, strings.ToUpper(str)
 	}))
-	m.decls.Store(MakeIdent("to_lower"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("to_lower"), EvalFunc(func(env *Env, args *List) (*Env, any) {
 		if args.Len() != 1 {
-			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
+			return env, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
 
-		_, head := Eval(r, args.Head(), nil)
+		_, head := Eval(env, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return r, NewTypeError(head, reflect.TypeFor[string]())
+			return env, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		return r, strings.ToLower(str)
+		return env, strings.ToLower(str)
 	}))
-	m.decls.Store(MakeIdent("format"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
+	m.decls.Store(MakeIdent("format"), EvalFunc(func(env *Env, args *List) (*Env, any) {
 		if args.Len() == 0 {
-			return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
+			return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 		}
 
-		_, head := Eval(r, args.Head(), nil)
+		_, head := Eval(env, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return r, NewTypeError(head, reflect.TypeFor[string]())
+			return env, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		verbs := slices.Collect(EvalAll(r, args.Tail().All()))
-		return r, fmt.Sprintf(str, verbs...)
+		verbs := slices.Collect(EvalAll(env, args.Tail().All()))
+		return env, fmt.Sprintf(str, verbs...)
 	}))
 
 	return &m

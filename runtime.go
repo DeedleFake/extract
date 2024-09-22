@@ -7,11 +7,11 @@ import (
 	"deedles.dev/xsync"
 )
 
-// Runtime is the language's state. It tracks global data that is
+// Env is the language's state. It tracks global data that is
 // necessary throughout an Extract program, such as declared modules.
 // A runtime is necessary to properly evaluate Extract code. To do so,
 // use the context returned by a runtime's [Context] method.
-type Runtime struct {
+type Env struct {
 	ctx           context.Context
 	modules       *xsync.Map[Atom, *Module]
 	currentModule *Module
@@ -20,8 +20,8 @@ type Runtime struct {
 
 // New returns a runtime that has been initialized with the standard
 // global state.
-func New(ctx context.Context) *Runtime {
-	r := Runtime{
+func New(ctx context.Context) *Env {
+	r := Env{
 		ctx:     ctx,
 		modules: new(xsync.Map[Atom, *Module]),
 		locals:  kernel,
@@ -32,27 +32,27 @@ func New(ctx context.Context) *Runtime {
 	return &r
 }
 
-func (r *Runtime) All() iter.Seq2[Ident, any] {
+func (env *Env) All() iter.Seq2[Ident, any] {
 	// TODO: Also provide module-level declarations.
-	return r.locals.All()
+	return env.locals.All()
 }
 
-func (r Runtime) WithContext(ctx context.Context) *Runtime {
-	r.ctx = ctx
-	return &r
+func (env Env) WithContext(ctx context.Context) *Env {
+	env.ctx = ctx
+	return &env
 }
 
-func (r Runtime) Context() context.Context {
-	return r.ctx
+func (env Env) Context() context.Context {
+	return env.ctx
 }
 
-func (r Runtime) Let(ident Ident, val any) *Runtime {
-	r.locals = r.locals.Push(ident, val)
-	return &r
+func (env Env) Let(ident Ident, val any) *Env {
+	env.locals = env.locals.Push(ident, val)
+	return &env
 }
 
-func (r Runtime) Lookup(ident Ident) (any, bool) {
-	for id, val := range r.All() {
+func (env Env) Lookup(ident Ident) (any, bool) {
+	for id, val := range env.All() {
 		if id == ident {
 			return val, true
 		}
@@ -62,9 +62,9 @@ func (r Runtime) Lookup(ident Ident) (any, bool) {
 
 // AddModule declares a new module with the given name. If the module
 // already exists, it returns nil.
-func (r *Runtime) AddModule(name Atom) *Module {
+func (env *Env) AddModule(name Atom) *Module {
 	m := Module{name: name}
-	_, ok := r.modules.LoadOrStore(name, &m)
+	_, ok := env.modules.LoadOrStore(name, &m)
 	if ok {
 		return nil
 	}
@@ -73,14 +73,14 @@ func (r *Runtime) AddModule(name Atom) *Module {
 
 // GetModule finds a declared module with the given name. If no such
 // module has been declared, it returns nil.
-func (r *Runtime) GetModule(name Atom) *Module {
-	v, _ := r.modules.Load(name)
+func (env *Env) GetModule(name Atom) *Module {
+	v, _ := env.modules.Load(name)
 	return v
 }
 
 // Module is a basic building block of an Extract program. All
 // declared functions must be declared inside of a module. Modules are
-// identified by an atom and are global to a [Runtime] once they are
+// identified by an atom and are global to a [Env] once they are
 // declared.
 type Module struct {
 	name  Atom
