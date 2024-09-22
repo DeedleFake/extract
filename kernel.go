@@ -32,7 +32,7 @@ func kernelDefModule(env *Env, args *List) (*Env, any) {
 	}
 	mr := *env
 	mr.currentModule = m
-	body := args.Tail().Run(&mr)
+	_, body := Run(&mr, args.Tail().All())
 	if err, ok := body.(error); ok {
 		return env, err
 	}
@@ -59,7 +59,8 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 				return fenv, &ArgumentNumError{Num: args.Len(), Expected: 0}
 			}
 
-			return fenv, args.Tail().Run(fenv)
+			_, ret := Run(fenv, args.Tail().All())
+			return fenv, ret
 		})
 
 	case Call:
@@ -94,7 +95,8 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 				i++
 			}
 
-			return fenv, args.Tail().Run(fenv)
+			_, ret := Run(fenv, args.Tail().All())
+			return fenv, ret
 		})
 
 	default:

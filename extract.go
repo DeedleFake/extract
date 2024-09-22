@@ -226,3 +226,17 @@ type EvalFunc func(env *Env, args *List) (*Env, any)
 func (f EvalFunc) Eval(env *Env, args *List) (*Env, any) {
 	return f(env, args)
 }
+
+// Run runs a list like it's the body of a function. If any elements
+// of the list return an error when evaluated, this function returns
+// early with that error. Otherwise, it returns the result of the
+// evaluation of the last element of the list.
+func Run[T any](env *Env, seq iter.Seq[T]) (e *Env, ret any) {
+	for v := range seq {
+		env, ret = Eval(env, v, nil)
+		if err, ok := ret.(error); ok {
+			return env, err
+		}
+	}
+	return env, ret
+}

@@ -119,17 +119,3 @@ func (list *List) All() iter.Seq[any] {
 		}
 	}
 }
-
-// Run runs a list like it's the body of a function. If any elements
-// of the list return an error when evaluated, this function returns
-// early with that error. Otherwise, it returns the result of the
-// evaluation of the last element of the list.
-func (list *List) Run(env *Env) (ret any) {
-	for v := range list.All() {
-		env, ret = Eval(env, v, nil)
-		if err, ok := ret.(error); ok {
-			return err
-		}
-	}
-	return ret
-}

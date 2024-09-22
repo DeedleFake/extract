@@ -16,7 +16,7 @@ func runScript(t *testing.T, src string) any {
 	}
 
 	r := extract.New(context.Background())
-	result := s.Run(r)
+	_, result := extract.Run(r, s.All())
 	if err, ok := result.(error); ok {
 		t.Fatal(err)
 	}
@@ -73,6 +73,6 @@ func BenchmarkDefModule(b *testing.B) {
 		`
 		s, _ := parser.Parse(strings.NewReader(src))
 		r := extract.New(context.Background())
-		s.Run(r)
+		extract.Run(r, s.All())
 	}
 }
