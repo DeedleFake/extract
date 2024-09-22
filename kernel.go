@@ -12,6 +12,7 @@ var kernel = func() (ll *localList) {
 	ll = ll.Push(MakeIdent("list"), EvalFunc(kernelList))
 	ll = ll.Push(MakeIdent("defmodule"), EvalFunc(kernelDefModule))
 	ll = ll.Push(MakeIdent("def"), EvalFunc(kernelDef))
+	ll = ll.Push(MakeIdent("func"), EvalFunc(kernelFunc))
 	ll = ll.Push(MakeIdent("add"), EvalFunc(kernelAdd))
 	ll = ll.Push(MakeIdent("sub"), EvalFunc(kernelSub))
 	return ll
@@ -59,42 +60,63 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 		return env, errors.New("def used outside of module")
 	}
 
-	var name Ident
-	var f any
-	switch pattern := args.Head().(type) {
+	name, f, err := createFunc(env, args.Head(), args.Tail())
+	if err != nil {
+		return env, err
+	}
+
+	_, ok := m.decls.LoadOrStore(name, f)
+	if ok {
+		return env, fmt.Errorf("attempted to redeclare function %q", name)
+	}
+	return env, f
+}
+
+func kernelFunc(env *Env, args *List) (*Env, any) {
+	if args.Len() < 2 {
+		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
+	}
+
+	_, f, err := createFunc(env, args.Head(), args.Tail())
+	if err != nil {
+		return env, err
+	}
+	return env, f
+}
+
+func createFunc(env *Env, pattern any, body *List) (Ident, Evaluator, error) {
+	switch pattern := pattern.(type) {
 	case Ident:
-		name = pattern
-		f = EvalFunc(func(fenv *Env, args *List) (*Env, any) {
+		return pattern, EvalFunc(func(fenv *Env, args *List) (*Env, any) {
 			if args.Len() != 0 {
 				return fenv, &ArgumentNumError{Num: args.Len(), Expected: 0}
 			}
 
-			_, ret := Run(fenv, args.Tail().All())
+			_, ret := Run(fenv, body.All())
 			return fenv, ret
-		})
+		}), nil
 
 	case Call:
 		if pattern.Len() == 0 {
-			return env, errors.New("function pattern list must contain at least one element")
+			return Ident{}, nil, errors.New("function pattern list must contain at least one element")
 		}
 
-		n, ok := pattern.Head().(Ident)
+		name, ok := pattern.Head().(Ident)
 		if !ok {
-			return env, NewTypeError(name, reflect.TypeFor[Ident]())
+			return Ident{}, nil, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
-		name = n
 
 		tail := pattern.Tail()
 		params := make([]Ident, 0, tail.Len())
 		for arg := range tail.All() {
 			name, ok := arg.(Ident)
 			if !ok {
-				return env, NewTypeError(arg, reflect.TypeFor[Ident]())
+				return name, nil, NewTypeError(arg, reflect.TypeFor[Ident]())
 			}
 			params = append(params, name)
 		}
 
-		f = EvalFunc(func(fenv *Env, fargs *List) (*Env, any) {
+		return name, EvalFunc(func(fenv *Env, fargs *List) (*Env, any) {
 			if fargs.Len() != len(params) {
 				return fenv, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
 			}
@@ -105,19 +127,13 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 				i++
 			}
 
-			_, ret := Run(fenv, args.Tail().All())
+			_, ret := Run(fenv, body.All())
 			return fenv, ret
-		})
+		}), nil
 
 	default:
-		return env, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
+		return Ident{}, nil, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
 	}
-
-	_, ok := m.decls.LoadOrStore(name, f)
-	if ok {
-		return env, fmt.Errorf("attempted to redeclare function %q", name)
-	}
-	return env, f
 }
 
 func kernelAdd(env *Env, args *List) (*Env, any) {

@@ -25,7 +25,7 @@ func runScript(t *testing.T, src string) any {
 }
 
 func TestSimpleScript(t *testing.T) {
-	src := `"This is a test."`
+	const src = `"This is a test."`
 	result := runScript(t, src)
 	if result != "This is a test." {
 		t.Fatalf("%#v", result)
@@ -33,7 +33,7 @@ func TestSimpleScript(t *testing.T) {
 }
 
 func TestSingleCall(t *testing.T) {
-	src := `(String.to_upper "test")`
+	const src = `(String.to_upper "test")`
 	result := runScript(t, src)
 	if result != "TEST" {
 		t.Fatalf("%#v", result)
@@ -41,7 +41,7 @@ func TestSingleCall(t *testing.T) {
 }
 
 func TestStringFormat(t *testing.T) {
-	src := `(String.format "This is a %v." "test")`
+	const src = `(String.format "This is a %v." "test")`
 	result := runScript(t, src)
 	if result != "This is a test." {
 		t.Fatalf("%#v", result)
@@ -49,7 +49,7 @@ func TestStringFormat(t *testing.T) {
 }
 
 func TestDefModule(t *testing.T) {
-	src := `
+	const src = `
 	(defmodule Test
 		(def (inc v) (add v 1))
 	)
@@ -64,7 +64,7 @@ func TestDefModule(t *testing.T) {
 
 func BenchmarkDefModule(b *testing.B) {
 	for range b.N {
-		src := `
+		const src = `
 		(defmodule Test
 			(def (inc v) (add v 1))
 		)
@@ -74,5 +74,19 @@ func BenchmarkDefModule(b *testing.B) {
 		s, _ := parser.Parse(strings.NewReader(src))
 		r := extract.New(context.Background())
 		extract.Run(r, s.All())
+	}
+}
+
+func TestIndirectFunctionCall(t *testing.T) {
+	const src = `
+	(defmodule Test
+		(def (get _) (func (plus a b) (add a b)))
+	)
+
+	((Test.get ()) 1 2)
+	`
+	result := runScript(t, src)
+	if result != int64(3) {
+		t.Fatalf("%#v", result)
 	}
 }

@@ -20,7 +20,11 @@ func (call Call) Eval(env *Env, args *List) (*Env, any) {
 		return env, call
 	}
 
-	return Eval(env, call.Head(), call.Tail())
+	_, r := Eval(env, call.Head(), call.Tail())
+	if args.Len() == 0 {
+		return env, r
+	}
+	return Eval(env, r, args)
 }
 
 // Ident is an identifier for bound data, i.e. a declared
