@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"deedles.dev/extract"
+	"deedles.dev/extract/literal"
 	"deedles.dev/extract/parser"
 )
 
-func checkList(t *testing.T, got *extract.List, ex *extract.List) {
+func checkList(t *testing.T, got literal.List, ex literal.List) {
 	next, stop := iter.Pull(ex.All())
 	defer stop()
 
@@ -20,8 +21,8 @@ func checkList(t *testing.T, got *extract.List, ex *extract.List) {
 		}
 
 		switch g := g.(type) {
-		case *extract.List:
-			checkList(t, g, e.(*extract.List))
+		case literal.List:
+			checkList(t, g, e.(literal.List))
 		default:
 			if g != e {
 				t.Fatalf("%#v != %#v", g, e)
@@ -34,14 +35,14 @@ func TestParse(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		output *extract.List
+		output literal.List
 	}{
-		{"Simple", `(IO.println "This is a test.")`, extract.ListOf(
-			extract.ListOf(
-				extract.Ref{In: extract.MakeAtom("IO"), Name: extract.Ident("println")},
+		{"Simple", `(IO.println "This is a test.")`, literal.List{List: extract.ListOf(
+			literal.List{List: extract.ListOf(
+				literal.Ref{In: extract.MakeAtom("IO"), Name: extract.MakeIdent("println")},
 				"This is a test.",
-			),
-		)},
+			)},
+		)}},
 	}
 
 	for _, test := range tests {
@@ -52,7 +53,7 @@ func TestParse(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			checkList(t, list, test.output)
+			checkList(t, literal.List{List: list}, test.output)
 		})
 	}
 }

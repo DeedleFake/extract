@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"deedles.dev/extract"
+	"deedles.dev/extract/literal"
 	"deedles.dev/extract/scanner"
 )
 
@@ -105,11 +106,11 @@ func expect[T any](p *parser) (tok scanner.Token, v T) {
 	return tok, v
 }
 
-func (p *parser) list() *extract.List {
+func (p *parser) list() literal.List {
 	expect[scanner.Lparen](p)
 	list := p.listInner()
 	expect[scanner.Rparen](p)
-	return list
+	return literal.List{List: list}
 }
 
 func (p *parser) listInner() *extract.List {
@@ -124,15 +125,15 @@ func (p *parser) expr() (expr any) {
 	tok := p.scan()
 	switch t := tok.Val.(type) {
 	case scanner.Int:
-		expr = int64(t)
+		expr = literal.Int(t)
 	case scanner.Float:
-		expr = float64(t)
+		expr = literal.Float(t)
 	case scanner.String:
-		expr = string(t)
+		expr = literal.String(t)
 	case scanner.Atom:
 		expr = extract.MakeAtom(string(t))
 	case scanner.Ident:
-		expr = extract.Ident(t)
+		expr = extract.MakeIdent(string(t))
 	case scanner.Lparen:
 		p.unscan(tok)
 		expr = p.list()
@@ -148,14 +149,14 @@ func (p *parser) expr() (expr any) {
 	return expr
 }
 
-func (p *parser) ref(in any) extract.Ref {
+func (p *parser) ref(in any) literal.Ref {
 	expect[scanner.Dot](p)
 	switch name := p.expr().(type) {
 	case extract.Ident:
-		return extract.Ref{In: in, Name: name}
+		return literal.Ref{In: in, Name: name}
 	default:
 		p.raise(errors.New("last element of a ref must be an identifier"))
-		return extract.Ref{}
+		return literal.Ref{}
 	}
 }
 
