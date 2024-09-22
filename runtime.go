@@ -2,13 +2,9 @@ package extract
 
 import (
 	"context"
+	"iter"
 
 	"deedles.dev/xsync"
-)
-
-type (
-	runtimeKey struct{}
-	moduleKey  struct{}
 )
 
 // Runtime is the language's state. It tracks global data that is
@@ -16,32 +12,52 @@ type (
 // A runtime is necessary to properly evaluate Extract code. To do so,
 // use the context returned by a runtime's [Context] method.
 type Runtime struct {
-	modules xsync.Map[Atom, *Module]
+	ctx           context.Context
+	modules       *xsync.Map[Atom, *Module]
+	currentModule *Module
+	locals        *localList
 }
 
-// NewRuntime returns a runtime that has been initialized with the
-// standard global state.
-func NewRuntime() *Runtime {
-	var r Runtime
+// New returns a runtime that has been initialized with the standard
+// global state.
+func New(ctx context.Context) *Runtime {
+	r := Runtime{
+		ctx:     ctx,
+		modules: new(xsync.Map[Atom, *Module]),
+		locals:  kernel,
+	}
 	for name, m := range std {
 		r.modules.Store(name, m)
 	}
 	return &r
 }
 
-// GetRuntime returns the runtime associated with given context, or
-// nil if none is found. Many pieces of the Extract system assume that
-// a runtime will always be available in their provided contexts
-// during evaluation.
-func GetRuntime(ctx context.Context) *Runtime {
-	r, _ := ctx.Value(runtimeKey{}).(*Runtime)
-	return r
+func (r *Runtime) All() iter.Seq2[Ident, any] {
+	// TODO: Also provide module-level declarations.
+	return r.locals.All()
 }
 
-// Context returns the base context for the Runtime. This is usually
-// what should be passed to top-level Extract code during evaluation.
-func (r *Runtime) Context() context.Context {
-	return context.WithValue(kernel, runtimeKey{}, r)
+func (r Runtime) WithContext(ctx context.Context) *Runtime {
+	r.ctx = ctx
+	return &r
+}
+
+func (r Runtime) Context() context.Context {
+	return r.ctx
+}
+
+func (r Runtime) Let(ident Ident, val any) *Runtime {
+	r.locals = r.locals.Push(ident, val)
+	return &r
+}
+
+func (r Runtime) Lookup(ident Ident) (any, bool) {
+	for id, val := range r.All() {
+		if id == ident {
+			return val, true
+		}
+	}
+	return nil, false
 }
 
 // AddModule declares a new module with the given name. If the module
@@ -71,24 +87,6 @@ type Module struct {
 	decls xsync.Map[Ident, any]
 }
 
-// GetModule gets the current module from the context. If the context
-// does not have a current module, likely because the code being
-// evaluated is outside of a module declaration, it returns nil.
-func GetModule(ctx context.Context) *Module {
-	m, _ := ctx.Value(moduleKey{}).(*Module)
-	return m
-}
-
-// Context returns a context suitable for executing code inside of a
-// module declaration using the provided context as a base.
-func (m *Module) Context(ctx context.Context) context.Context {
-	ctx = context.WithValue(ctx, moduleKey{}, m)
-	for name, f := range m.decls.Range {
-		ctx = context.WithValue(ctx, name, f)
-	}
-	return ctx
-}
-
 // Name returns the name of the module.
 func (m *Module) Name() Atom {
 	return m.name
@@ -100,4 +98,29 @@ func (m *Module) Name() Atom {
 // value.
 func (m *Module) Lookup(ident Ident) (any, bool) {
 	return m.decls.Load(ident)
+}
+
+type localList struct {
+	ident Ident
+	val   any
+	next  *localList
+}
+
+func (ll *localList) Push(ident Ident, val any) *localList {
+	return &localList{
+		ident: ident,
+		val:   val,
+		next:  ll,
+	}
+}
+
+func (ll *localList) All() iter.Seq2[Ident, any] {
+	return func(yield func(Ident, any) bool) {
+		for ll != nil {
+			if !yield(ll.ident, ll.val) {
+				return
+			}
+			ll = ll.next
+		}
+	}
 }

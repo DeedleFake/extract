@@ -1,7 +1,6 @@
 package extract
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -9,49 +8,45 @@ import (
 
 // kernel is the base scope containing the built-in, top-level
 // functions.
-var kernel = func() context.Context {
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, Ident("defmodule"), EvalFunc(kernelDefModule))
-	ctx = context.WithValue(ctx, Ident("def"), EvalFunc(kernelDef))
-	ctx = context.WithValue(ctx, Ident("add"), EvalFunc(kernelAdd))
-	ctx = context.WithValue(ctx, Ident("sub"), EvalFunc(kernelSub))
-	return ctx
+var kernel = func() (ll *localList) {
+	ll = ll.Push("defmodule", EvalFunc(kernelDefModule))
+	ll = ll.Push("def", EvalFunc(kernelDef))
+	ll = ll.Push("add", EvalFunc(kernelAdd))
+	ll = ll.Push("sub", EvalFunc(kernelSub))
+	return ll
 }()
 
-func kernelDefModule(ctx context.Context, args *List) (any, context.Context) {
+func kernelDefModule(r *Runtime, args *List) (*Runtime, any) {
 	if args.Len() == 0 {
-		return &ArgumentNumError{Num: args.Len(), Expected: -1}, ctx
+		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
 	name, ok := args.Head().(Atom)
 	if !ok {
-		return NewTypeError(name, reflect.TypeFor[Atom]()), ctx
+		return r, NewTypeError(name, reflect.TypeFor[Atom]())
 	}
 
-	runtime := GetRuntime(ctx)
-	if runtime == nil {
-		panic(errors.New("no runtime in context"))
-	}
-
-	m := runtime.AddModule(name)
+	m := r.AddModule(name)
 	if m == nil {
-		return fmt.Errorf("attempted to redeclare module %q", name), ctx
+		return r, fmt.Errorf("attempted to redeclare module %q", name)
 	}
-	r := args.Tail().Run(m.Context(ctx))
-	if err, ok := r.(error); ok {
-		return err, ctx
+	mr := *r
+	mr.currentModule = m
+	body := args.Tail().Run(&mr)
+	if err, ok := body.(error); ok {
+		return r, err
 	}
-	return name, ctx
+	return r, name
 }
 
-func kernelDef(ctx context.Context, args *List) (any, context.Context) {
+func kernelDef(r *Runtime, args *List) (*Runtime, any) {
 	if args.Len() < 2 {
-		return &ArgumentNumError{Num: args.Len(), Expected: -1}, ctx
+		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
-	m := GetModule(ctx)
+	m := r.currentModule
 	if m == nil {
-		return errors.New("def used outside of module"), ctx
+		return r, errors.New("def used outside of module")
 	}
 
 	var name Ident
@@ -59,22 +54,22 @@ func kernelDef(ctx context.Context, args *List) (any, context.Context) {
 	switch pattern := args.Head().(type) {
 	case Ident:
 		name = pattern
-		f = EvalFunc(func(fctx context.Context, args *List) (any, context.Context) {
+		f = EvalFunc(func(fr *Runtime, args *List) (*Runtime, any) {
 			if args.Len() != 0 {
-				return &ArgumentNumError{Num: args.Len(), Expected: 0}, fctx
+				return fr, &ArgumentNumError{Num: args.Len(), Expected: 0}
 			}
 
-			return args.Tail().Run(m.Context(fctx)), fctx
+			return fr, args.Tail().Run(fr)
 		})
 
 	case *List:
 		if pattern.Len() == 0 {
-			return errors.New("function pattern list must contain at least one element"), ctx
+			return r, errors.New("function pattern list must contain at least one element")
 		}
 
 		name, _ = pattern.Head().(Ident)
 		if name == "" {
-			return NewTypeError(name, reflect.TypeFor[Ident]()), ctx
+			return r, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
 
 		tail := pattern.Tail()
@@ -82,70 +77,70 @@ func kernelDef(ctx context.Context, args *List) (any, context.Context) {
 		for arg := range tail.All() {
 			name, ok := arg.(Ident)
 			if !ok {
-				return NewTypeError(arg, reflect.TypeFor[Ident]()), ctx
+				return r, NewTypeError(arg, reflect.TypeFor[Ident]())
 			}
 			params = append(params, name)
 		}
 
-		f = EvalFunc(func(fctx context.Context, fargs *List) (any, context.Context) {
+		f = EvalFunc(func(fr *Runtime, fargs *List) (*Runtime, any) {
 			if fargs.Len() != len(params) {
-				return &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}, fctx
+				return fr, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
 			}
 
-			ectx := m.Context(fctx)
 			var i int
-			for arg := range EvalAll(ctx, fargs.All()) {
-				ectx = context.WithValue(ectx, params[i], arg)
+			for arg := range EvalAll(r, fargs.All()) {
+				fr = fr.Let(params[i], arg)
 				i++
 			}
 
-			return args.Tail().Run(ectx), fctx
+			return fr, args.Tail().Run(fr)
 		})
 
 	default:
-		return NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]()), ctx
+		return r, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
 	}
 
 	_, ok := m.decls.LoadOrStore(name, f)
 	if ok {
-		return fmt.Errorf("attempted to redeclare function %q", string(name)), ctx
+		return r, fmt.Errorf("attempted to redeclare function %q", string(name))
 	}
-	return f, ctx
+	return r, f
 }
 
-func kernelAdd(ctx context.Context, args *List) (any, context.Context) {
+func kernelAdd(r *Runtime, args *List) (*Runtime, any) {
 	if args.Len() < 2 {
-		return &ArgumentNumError{Num: args.Len(), Expected: -1}, ctx
+		return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
 	var total int64
 	var totalf float64
-	for arg := range EvalAll(ctx, args.All()) {
+	for arg := range EvalAll(r, args.All()) {
 		switch arg := arg.(type) {
 		case int64:
 			total += arg
 		case float64:
 			totalf += arg
 		case error:
-			return arg, ctx
+			// TODO: Don't handle errors like this?
+			return r, arg
 		default:
-			return NewTypeError(arg, reflect.TypeFor[int64](), reflect.TypeFor[float64]()), ctx
+			return r, NewTypeError(arg, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 		}
 	}
 
 	if totalf != 0 {
-		return float64(total) + totalf, ctx
+		return r, float64(total) + totalf
 	}
-	return total, ctx
+	return r, total
 }
 
-func kernelSub(ctx context.Context, args *List) (any, context.Context) {
+func kernelSub(r *Runtime, args *List) (*Runtime, any) {
 	if args.Len() != 2 {
-		return &ArgumentNumError{Num: args.Len(), Expected: 2}, ctx
+		return r, &ArgumentNumError{Num: args.Len(), Expected: 2}
 	}
 
-	first, _ := Eval(ctx, args.Head(), nil)
-	second, _ := Eval(ctx, args.Tail().Head(), nil)
+	_, first := Eval(r, args.Head(), nil)
+	_, second := Eval(r, args.Tail().Head(), nil)
 
 	var i int64
 	var f float64
@@ -155,21 +150,21 @@ func kernelSub(ctx context.Context, args *List) (any, context.Context) {
 	case float64:
 		f = a
 	default:
-		return NewTypeError(a, reflect.TypeFor[int64](), reflect.TypeFor[float64]()), ctx
+		return r, NewTypeError(a, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 	}
 
 	switch b := second.(type) {
 	case int64:
 		if f != 0 {
-			return f - float64(b), ctx
+			return r, f - float64(b)
 		}
-		return i - b, ctx
+		return r, i - b
 	case float64:
 		if i != 0 {
-			return float64(i) - b, ctx
+			return r, float64(i) - b
 		}
-		return f - b, ctx
+		return r, f - b
 	default:
-		return NewTypeError(b, reflect.TypeFor[int64](), reflect.TypeFor[float64]()), ctx
+		return r, NewTypeError(b, reflect.TypeFor[int64](), reflect.TypeFor[float64]())
 	}
 }

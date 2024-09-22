@@ -1,7 +1,6 @@
 package extract
 
 import (
-	"context"
 	"iter"
 	"slices"
 	"sync"
@@ -121,24 +120,24 @@ func (list *List) All() iter.Seq[any] {
 	}
 }
 
-func (list *List) Eval(ctx context.Context, args *List) (any, context.Context) {
+func (list *List) Eval(r *Runtime, args *List) (*Runtime, any) {
 	if list.Len() == 0 {
-		return list, ctx
+		return r, list
 	}
 
-	return Eval(ctx, list.Head(), list.Tail())
+	return Eval(r, list.Head(), list.Tail())
 }
 
 // Run runs a list like it's the body of a function. If any elements
 // of the list return an error when evaluated, this function returns
 // early with that error. Otherwise, it returns the result of the
 // evaluation of the last element of the list.
-func (list *List) Run(ctx context.Context) (r any) {
+func (list *List) Run(r *Runtime) (ret any) {
 	for v := range list.All() {
-		r, ctx = Eval(ctx, v, nil)
-		if err, ok := r.(error); ok {
+		r, ret = Eval(r, v, nil)
+		if err, ok := ret.(error); ok {
 			return err
 		}
 	}
-	return r
+	return ret
 }

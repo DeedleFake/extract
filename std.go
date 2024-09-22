@@ -1,7 +1,6 @@
 package extract
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"slices"
@@ -16,45 +15,45 @@ var std = map[Atom]*Module{
 
 func stdString() *Module {
 	m := Module{name: MakeAtom("String")}
-	m.decls.Store(Ident("to_upper"), EvalFunc(func(ctx context.Context, args *List) (any, context.Context) {
+	m.decls.Store(Ident("to_upper"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() != 1 {
-			return &ArgumentNumError{Num: args.Len(), Expected: 1}, ctx
+			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
 
-		head, _ := Eval(ctx, args.Head(), nil)
+		_, head := Eval(r, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return NewTypeError(head, reflect.TypeFor[string]()), ctx
+			return r, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		return strings.ToUpper(str), ctx
+		return r, strings.ToUpper(str)
 	}))
-	m.decls.Store(Ident("to_lower"), EvalFunc(func(ctx context.Context, args *List) (any, context.Context) {
+	m.decls.Store(Ident("to_lower"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() != 1 {
-			return &ArgumentNumError{Num: args.Len(), Expected: 1}, ctx
+			return r, &ArgumentNumError{Num: args.Len(), Expected: 1}
 		}
 
-		head, _ := Eval(ctx, args.Head(), nil)
+		_, head := Eval(r, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return NewTypeError(head, reflect.TypeFor[string]()), ctx
+			return r, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		return strings.ToLower(str), ctx
+		return r, strings.ToLower(str)
 	}))
-	m.decls.Store(Ident("format"), EvalFunc(func(ctx context.Context, args *List) (any, context.Context) {
+	m.decls.Store(Ident("format"), EvalFunc(func(r *Runtime, args *List) (*Runtime, any) {
 		if args.Len() == 0 {
-			return &ArgumentNumError{Num: args.Len(), Expected: -1}, ctx
+			return r, &ArgumentNumError{Num: args.Len(), Expected: -1}
 		}
 
-		head, _ := Eval(ctx, args.Head(), nil)
+		_, head := Eval(r, args.Head(), nil)
 		str, ok := head.(string)
 		if !ok {
-			return NewTypeError(head, reflect.TypeFor[string]()), ctx
+			return r, NewTypeError(head, reflect.TypeFor[string]())
 		}
 
-		verbs := slices.Collect(EvalAll(ctx, args.Tail().All()))
-		return fmt.Sprintf(str, verbs...), ctx
+		verbs := slices.Collect(EvalAll(r, args.Tail().All()))
+		return r, fmt.Sprintf(str, verbs...)
 	}))
 
 	return &m

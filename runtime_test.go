@@ -1,6 +1,7 @@
 package extract_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -14,8 +15,8 @@ func runScript(t *testing.T, src string) any {
 		t.Fatal(err)
 	}
 
-	r := extract.NewRuntime()
-	result := s.Run(r.Context())
+	r := extract.New(context.Background())
+	result := s.Run(r)
 	if err, ok := result.(error); ok {
 		t.Fatal(err)
 	}
@@ -71,7 +72,7 @@ func BenchmarkDefModule(b *testing.B) {
 		(Test.inc 2)
 		`
 		s, _ := parser.Parse(strings.NewReader(src))
-		r := extract.NewRuntime()
-		s.Run(r.Context())
+		r := extract.New(context.Background())
+		s.Run(r)
 	}
 }

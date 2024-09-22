@@ -2,8 +2,6 @@
 package extract
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"iter"
 	"reflect"
@@ -15,15 +13,15 @@ import (
 // The parser will create these for identifiers in the source code.
 type Ident string
 
-func (ident Ident) Eval(ctx context.Context, args *List) (any, context.Context) {
-	c := ctx.Value(ident)
-	if c == nil {
-		return &NameError{Ident: ident}, ctx
+func (ident Ident) Eval(r *Runtime, args *List) (*Runtime, any) {
+	c, ok := r.Lookup(ident)
+	if !ok {
+		return r, &NameError{Ident: ident}
 	}
 	if c, ok := c.(Ident); ok && c == ident {
 		panic(fmt.Errorf("name %q is bound to itself", string(ident)))
 	}
-	return Eval(ctx, c, args)
+	return Eval(r, c, args)
 }
 
 // Ref is an access of an identifier namespaced with a module.
@@ -38,29 +36,25 @@ type Ref struct {
 	Name Ident
 }
 
-func (r Ref) Eval(ctx context.Context, args *List) (any, context.Context) {
-	in, ctx := Eval(ctx, r.In, nil)
+func (ref Ref) Eval(r *Runtime, args *List) (*Runtime, any) {
+	r, in := Eval(r, ref.In, nil)
 	switch in := in.(type) {
 	case Atom:
-		runtime := GetRuntime(ctx)
-		if runtime == nil {
-			panic(errors.New("no runtime in context"))
-		}
-		m := runtime.GetModule(in)
+		m := r.GetModule(in)
 		if m == nil {
-			return &UndefinedModuleError{Name: in}, ctx
+			return r, &UndefinedModuleError{Name: in}
 		}
-		v, ok := m.Lookup(r.Name)
+		v, ok := m.Lookup(ref.Name)
 		if !ok {
-			return &NameError{Ident: r.Name}, ctx
+			return r, &NameError{Ident: ref.Name}
 		}
-		return Eval(ctx, v, args)
+		return Eval(r, v, args)
 
 	case error:
-		return in, ctx
+		return r, in
 
 	default:
-		return NewTypeError(in, reflect.TypeFor[Atom]()), ctx
+		return r, NewTypeError(in, reflect.TypeFor[Atom]())
 	}
 }
 
@@ -149,26 +143,26 @@ func (err *UndefinedModuleError) Error() string {
 // arguments were provided, the value is returned as the first element
 // of a list containing it and the arguments provided. Otherwise, the
 // value is returned unmodified.
-func Eval(ctx context.Context, expr any, args *List) (any, context.Context) {
+func Eval(r *Runtime, expr any, args *List) (*Runtime, any) {
 	switch expr := expr.(type) {
 	case Evaluator:
-		return expr.Eval(ctx, args)
+		return expr.Eval(r, args)
 	default:
 		if args.Len() > 0 {
 			expr = args.Push(expr)
 		}
-		return expr, ctx
+		return r, expr
 	}
 }
 
-// EvalAllWithContext is like [EvalAll], but also yields the context
+// EvalAllWithRuntime is like [EvalAll], but also yields the [Runtime]
 // that results from each elements evaluation.
-func EvalAllWithContext[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq2[any, context.Context] {
-	return func(yield func(any, context.Context) bool) {
+func EvalAllWithRuntime[T any](r *Runtime, seq iter.Seq[T]) iter.Seq2[*Runtime, any] {
+	return func(yield func(*Runtime, any) bool) {
 		for v := range seq {
-			var r any
-			r, ctx = Eval(ctx, v, nil)
-			if !yield(r, ctx) {
+			var ret any
+			r, ret = Eval(r, v, nil)
+			if !yield(r, ret) {
 				return
 			}
 		}
@@ -176,12 +170,12 @@ func EvalAllWithContext[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq2[a
 }
 
 // EvalAll returns an iterator that evaluates each element in seq
-// using [Eval] and yields the results. It uses ctx as the base
-// context for the evaluation and updates it with the result of each
+// using [Eval] and yields the results. It uses r as the base
+// [Runtime] for the evaluation and updates it with the result of each
 // elements evaluation.
-func EvalAll[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq[any] {
+func EvalAll[T any](r *Runtime, seq iter.Seq[T]) iter.Seq[any] {
 	return func(yield func(any) bool) {
-		for v := range EvalAllWithContext(ctx, seq) {
+		for _, v := range EvalAllWithRuntime(r, seq) {
 			if !yield(v) {
 				return
 			}
@@ -192,18 +186,18 @@ func EvalAll[T any](ctx context.Context, seq iter.Seq[T]) iter.Seq[any] {
 // Evaluator is a value that can be evaluated, possibly with
 // arguments, such as a function.
 type Evaluator interface {
-	// Eval evaluates the value in the given context with the given
+	// Eval evaluates the value in the given [Runtime] with the given
 	// arguments. It returns the result of the evaluation and a new
-	// context representing any modifications that the evaluation has
+	// Runtime representing any modifications that the evaluation has
 	// made to it.
 	//
-	// Most implementations will simply return the context unmodified.
-	Eval(ctx context.Context, args *List) (any, context.Context)
+	// Most implementations will simply return the Runtime unmodified.
+	Eval(r *Runtime, args *List) (*Runtime, any)
 }
 
 // EvalFunc is a func wrapper for [Evaluator].
-type EvalFunc func(ctx context.Context, args *List) (any, context.Context)
+type EvalFunc func(r *Runtime, args *List) (*Runtime, any)
 
-func (f EvalFunc) Eval(ctx context.Context, args *List) (any, context.Context) {
-	return f(ctx, args)
+func (f EvalFunc) Eval(r *Runtime, args *List) (*Runtime, any) {
+	return f(r, args)
 }
