@@ -84,7 +84,7 @@ func kernelFunc(env *Env, args *List) (*Env, any) {
 	return env, f
 }
 
-func createFunc(env *Env, pattern any, body *List) (Ident, Evaluator, error) {
+func createFunc(env *Env, pattern any, body *List) (name Ident, f Evaluator, err error) {
 	switch pattern := pattern.(type) {
 	case Ident:
 		return pattern, EvalFunc(func(fenv *Env, args *List) (*Env, any) {
@@ -127,6 +127,7 @@ func createFunc(env *Env, pattern any, body *List) (Ident, Evaluator, error) {
 				i++
 			}
 
+			fenv = fenv.Let(name, f)
 			_, ret := Run(fenv, body.All())
 			return fenv, ret
 		}), nil
