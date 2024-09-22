@@ -41,6 +41,14 @@ func TestScan(t *testing.T) {
 			scanner.Ident("push"),
 			scanner.Rparen{},
 		}},
+		{"Comment", "(add 1 2) # This is a comment.\n\"This is not.\"", []any{
+			scanner.Lparen{},
+			scanner.Ident("add"),
+			scanner.Int(1),
+			scanner.Int(2),
+			scanner.Rparen{},
+			scanner.String("This is not."),
+		}},
 	}
 
 	for _, test := range tests {

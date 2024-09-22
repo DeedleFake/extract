@@ -146,6 +146,14 @@ func (s *Scanner) start() {
 	}
 
 	switch s.c {
+	case '#':
+		for s.c != '\n' {
+			if !s.read() {
+				return
+			}
+		}
+		s.start()
+		return
 	case '(':
 		s.tok.Val = Lparen{}
 		return
