@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+
+	"deedles.dev/xiter"
 )
 
 // kernel is the base scope containing the built-in, top-level
@@ -121,10 +123,8 @@ func createFunc(env *Env, pattern any, body *List) (name Ident, f Evaluator, err
 				return fenv, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
 			}
 
-			var i int
-			for arg := range EvalAll(env, fargs.All()) {
+			for i, arg := range xiter.Enumerate(EvalAll(env, fargs.All())) {
 				fenv = fenv.Let(params[i], arg)
-				i++
 			}
 
 			fenv = fenv.Let(name, f)
