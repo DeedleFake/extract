@@ -120,3 +120,19 @@ func TestDefPatterns(t *testing.T) {
 		t.Fatalf("%#v", result)
 	}
 }
+
+func TestPin(t *testing.T) {
+	const src = `
+	(let t 3)
+	(defmodule Test
+		(def (test ^t) "test")
+		(def (test t) t)
+	)
+
+	(Test.test 5)
+	`
+	result := runScript(t, src, true)
+	if result != "test" {
+		t.Fatalf("%#v", result)
+	}
+}

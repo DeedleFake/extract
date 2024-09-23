@@ -13,6 +13,7 @@ var kernel = func() (ll *localList) {
 	ll = ll.Push(MakeIdent("defmodule"), EvalFunc(kernelDefModule))
 	ll = ll.Push(MakeIdent("def"), EvalFunc(kernelDef))
 	ll = ll.Push(MakeIdent("func"), EvalFunc(kernelFunc))
+	ll = ll.Push(MakeIdent("let"), EvalFunc(kernelLet))
 	ll = ll.Push(MakeIdent("add"), EvalFunc(kernelAdd))
 	ll = ll.Push(MakeIdent("sub"), EvalFunc(kernelSub))
 	return ll
@@ -84,6 +85,20 @@ func kernelFunc(env *Env, args *List) (*Env, any) {
 		return env, err
 	}
 	return env, NewFunc(env, name, pattern, args.Tail())
+}
+
+func kernelLet(env *Env, args *List) (*Env, any) {
+	if args.Len() < 2 {
+		return env, &ArgumentNumError{Num: args.Len()}
+	}
+
+	name, ok := args.Head().(Ident)
+	if !ok {
+		return env, NewTypeError(name, reflect.TypeFor[Atom]())
+	}
+
+	_, val := Run(env, args.Tail().All())
+	return env.Let(name, val), val
 }
 
 func kernelAdd(env *Env, args *List) (*Env, any) {
