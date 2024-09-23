@@ -134,6 +134,10 @@ func (p *parser) expr() (expr any) {
 		expr = extract.MakeAtom(string(t))
 	case scanner.Ident:
 		expr = extract.MakeIdent(string(t))
+	case scanner.Pin:
+		_, ident := expect[scanner.Ident](p)
+		expr = literal.Pin{Ident: extract.MakeIdent(string(ident))}
+		return nil
 	case scanner.Lparen:
 		p.unscan(tok)
 		expr = p.list()
