@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"deedles.dev/xiter"
 )
@@ -17,7 +16,6 @@ type funcVariant struct {
 }
 
 type Func struct {
-	m        sync.RWMutex
 	env      *Env
 	name     Ident
 	variants []funcVariant
@@ -33,9 +31,6 @@ func NewFunc(env *Env, name Ident, pattern *Pattern, body *List) *Func {
 }
 
 func (f *Func) Eval(env *Env, args *List) (*Env, any) {
-	f.m.RLock()
-	defer f.m.RUnlock()
-
 	eargs := CollectList(EvalAll(env, args.All()))
 	for _, variant := range f.variants {
 		if fenv, ok := variant.Pattern.Match(f.env, eargs); ok {
@@ -47,9 +42,6 @@ func (f *Func) Eval(env *Env, args *List) (*Env, any) {
 }
 
 func (f *Func) AddVariant(pattern *Pattern, body *List) {
-	f.m.Lock()
-	defer f.m.Unlock()
-
 	f.variants = append(f.variants, funcVariant{Pattern: pattern, Body: body})
 }
 

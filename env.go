@@ -39,7 +39,7 @@ func (env *Env) All() iter.Seq2[Ident, any] {
 		for ident, val := range env.locals.All() {
 			switch ident {
 			case moduleIdent:
-				for ident, val := range env.currentModule.decls.Range {
+				for ident, val := range env.currentModule.decls {
 					if !yield(ident, val) {
 						return
 					}
@@ -79,7 +79,7 @@ func (env Env) Lookup(ident Ident) (any, bool) {
 // AddModule declares a new module with the given name. If the module
 // already exists, it returns nil.
 func (env *Env) AddModule(name Atom) *Module {
-	m := Module{name: name}
+	m := Module{name: name, decls: make(map[Ident]any)}
 	_, ok := env.modules.LoadOrStore(name, &m)
 	if ok {
 		return nil
@@ -106,7 +106,7 @@ func (env Env) withCurrentModule(m *Module) *Env {
 // declared.
 type Module struct {
 	name  Atom
-	decls xsync.Map[Ident, any]
+	decls map[Ident]any
 }
 
 // Name returns the name of the module.
@@ -119,7 +119,8 @@ func (m *Module) Name() Atom {
 // declared in the module, it returns false as the second return
 // value.
 func (m *Module) Lookup(ident Ident) (any, bool) {
-	return m.decls.Load(ident)
+	v, ok := m.decls[ident]
+	return v, ok
 }
 
 type localList struct {

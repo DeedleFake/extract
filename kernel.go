@@ -64,10 +64,13 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 		return env, err
 	}
 
-	f, loadok := m.decls.LoadOrStore(name, NewFunc(env, name, pattern, args.Tail()))
-	if f, ok := f.(*Func); loadok && ok {
-		f.AddVariant(pattern, args.Tail())
+	f, ok := m.decls[name].(*Func)
+	if !ok {
+		f = NewFunc(env, name, pattern, args.Tail())
+		m.decls[name] = f
+		return env, f
 	}
+	f.AddVariant(pattern, args.Tail())
 	return env, f
 }
 
