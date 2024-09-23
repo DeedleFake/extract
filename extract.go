@@ -8,6 +8,14 @@ import (
 	"unique"
 )
 
+type Pinned struct {
+	Ident Ident
+}
+
+func (p Pinned) Eval(env *Env, args *List) (*Env, any) {
+	return env, fmt.Errorf("pinned ident %q used as expression", p.Ident)
+}
+
 // Call is a function call. It calls the first element of the
 // underlying list with the remainder of the list as arguments. If the
 // list is empty, it just returns the list.
