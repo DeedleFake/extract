@@ -18,3 +18,5 @@ type Ident = extract.Ident
 type List = extract.Call
 
 type Ref = extract.Ref
+
+type Pin = extract.Pinned
