@@ -125,11 +125,12 @@ func TestPin(t *testing.T) {
 	const src = `
 	(let t 3)
 	(defmodule Test
-		(def (test ^t) "test")
-		(def (test t) t)
+		(def (test 5) "early")
+		(def (test \t) "test")
+		(def (test t) "late")
 	)
 
-	(Test.test 5)
+	(Test.test 3)
 	`
 	result := runScript(t, src, true)
 	if result != "test" {

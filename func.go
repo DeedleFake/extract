@@ -45,7 +45,7 @@ func (f *Func) AddVariant(pattern *Pattern, body *List) {
 	f.variants = append(f.variants, funcVariant{Pattern: pattern, Body: body})
 }
 
-func compileFuncPattern(pattern any) (name Ident, cpattern *Pattern, err error) {
+func compileFuncPattern(env *Env, pattern any) (name Ident, cpattern *Pattern, err error) {
 	switch pattern := pattern.(type) {
 	case Call:
 		if pattern.Len() == 0 {
@@ -57,7 +57,7 @@ func compileFuncPattern(pattern any) (name Ident, cpattern *Pattern, err error) 
 			return Ident{}, nil, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
 
-		cpattern, err := CompilePattern(pattern.Tail())
+		cpattern, err := CompilePattern(env, pattern.Tail())
 		if err != nil {
 			return name, nil, err
 		}
@@ -79,21 +79,23 @@ func (p *Pattern) Match(env *Env, val any) (*Env, bool) {
 
 type matcher func(env *Env, val any) (*Env, bool)
 
-func CompilePattern(format any) (*Pattern, error) {
-	root, err := compilePattern(format)
+func CompilePattern(env *Env, format any) (*Pattern, error) {
+	root, err := compilePattern(env, format)
 	return &Pattern{root: root}, err
 }
 
-func compilePattern(format any) (matcher, error) {
+func compilePattern(env *Env, format any) (matcher, error) {
 	switch format := format.(type) {
 	case Atom, int64, float64, string:
 		return equalityMatcher(format), nil
 	case Ident:
 		return assignMatcher(format), nil
+	case Pinned:
+		return pinMatcher(env, format.Ident)
 	case Call:
-		return listMatcher(format.List)
+		return listMatcher(env, format.List)
 	case *List:
-		return listMatcher(format)
+		return listMatcher(env, format)
 	default:
 		return nil, fmt.Errorf("unexpected type %T in pattern", format)
 	}
@@ -111,10 +113,21 @@ func assignMatcher(name Ident) matcher {
 	}
 }
 
-func listMatcher(list *List) (matcher, error) {
+func pinMatcher(env *Env, name Ident) (matcher, error) {
+	val, ok := env.Lookup(name)
+	if !ok {
+		return nil, &NameError{Ident: name}
+	}
+
+	return func(env *Env, v any) (*Env, bool) {
+		return env, Equate(val, v)
+	}, nil
+}
+
+func listMatcher(env *Env, list *List) (matcher, error) {
 	matchers := make([]matcher, 0, list.Len())
 	for part := range list.All() {
-		matcher, err := compilePattern(part)
+		matcher, err := compilePattern(env, part)
 		if err != nil {
 			return nil, err
 		}

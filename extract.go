@@ -28,7 +28,7 @@ func (call Call) Eval(env *Env, args *List) (*Env, any) {
 		return env, call
 	}
 
-	_, r := Eval(env, call.Head(), call.Tail())
+	env, r := Eval(env, call.Head(), call.Tail())
 	if args.Len() == 0 {
 		return env, r
 	}
@@ -250,4 +250,26 @@ func Run[T any](env *Env, seq iter.Seq[T]) (e *Env, ret any) {
 		}
 	}
 	return env, ret
+}
+
+type Equaler interface {
+	Equal(any) bool
+}
+
+func IsEquatable(val any) bool {
+	if _, ok := val.(Equaler); ok {
+		return true
+	}
+	return reflect.TypeOf(val).Comparable()
+}
+
+func Equate(v1, v2 any) bool {
+	if v1, ok := v1.(Equaler); ok {
+		return v1.Equal(v2)
+	}
+	if v2, ok := v2.(Equaler); ok {
+		return v2.Equal(v1)
+	}
+
+	return reflect.TypeOf(v1).Comparable() && v1 == v2
 }

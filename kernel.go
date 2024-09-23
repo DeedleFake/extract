@@ -60,7 +60,7 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 		return env, errors.New("def used outside of module")
 	}
 
-	name, pattern, err := compileFuncPattern(args.Head())
+	name, pattern, err := compileFuncPattern(env, args.Head())
 	if err != nil {
 		return env, err
 	}
@@ -80,7 +80,7 @@ func kernelFunc(env *Env, args *List) (*Env, any) {
 		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
-	name, pattern, err := compileFuncPattern(args.Head())
+	name, pattern, err := compileFuncPattern(env, args.Head())
 	if err != nil {
 		return env, err
 	}
