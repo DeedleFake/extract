@@ -142,8 +142,7 @@ func (p *parser) expr() (expr any) {
 		expr = extract.MakeIdent(string(t))
 	case scanner.Pin:
 		_, ident := expect[scanner.Ident](p)
-		expr = literal.Pin{Ident: extract.MakeIdent(string(ident))}
-		return nil
+		return literal.Pin{Ident: extract.MakeIdent(string(ident))}
 	case scanner.Lparen:
 		p.unscan(tok)
 		expr = p.list()
