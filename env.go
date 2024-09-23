@@ -7,6 +7,8 @@ import (
 	"deedles.dev/xsync"
 )
 
+var moduleIdent = MakeIdent("$module")
+
 // Env is the language's state. It tracks global data that is
 // necessary throughout an Extract program, such as declared modules.
 // A runtime is necessary to properly evaluate Extract code. To do so,
@@ -33,8 +35,22 @@ func New(ctx context.Context) *Env {
 }
 
 func (env *Env) All() iter.Seq2[Ident, any] {
-	// TODO: Also provide module-level declarations.
-	return env.locals.All()
+	return func(yield func(Ident, any) bool) {
+		for ident, val := range env.locals.All() {
+			switch ident {
+			case moduleIdent:
+				for ident, val := range env.currentModule.decls.Range {
+					if !yield(ident, val) {
+						return
+					}
+				}
+			default:
+				if !yield(ident, val) {
+					return
+				}
+			}
+		}
+	}
 }
 
 func (env Env) WithContext(ctx context.Context) *Env {
@@ -76,6 +92,12 @@ func (env *Env) AddModule(name Atom) *Module {
 func (env *Env) GetModule(name Atom) *Module {
 	v, _ := env.modules.Load(name)
 	return v
+}
+
+func (env Env) withCurrentModule(m *Module) *Env {
+	env.currentModule = m
+	env.locals = env.locals.Push(moduleIdent, nil)
+	return &env
 }
 
 // Module is a basic building block of an Extract program. All

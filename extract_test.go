@@ -105,3 +105,18 @@ func TestErrPatternMatch(t *testing.T) {
 		t.Fatalf("%#v", result)
 	}
 }
+
+func TestDefPatterns(t *testing.T) {
+	const src = `
+	(defmodule Test
+		(def (sum 0) 0)
+		(def (sum n) (add n (sum (sub n 1))))
+	)
+
+	(Test.sum 5)
+	`
+	result := runScript(t, src, true)
+	if result != int64(15) {
+		t.Fatalf("%#v", result)
+	}
+}

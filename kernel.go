@@ -41,9 +41,8 @@ func kernelDefModule(env *Env, args *List) (*Env, any) {
 	if m == nil {
 		return env, fmt.Errorf("attempted to redeclare module %q", name)
 	}
-	mr := *env
-	mr.currentModule = m
-	_, body := Run(&mr, args.Tail().All())
+	mr := env.withCurrentModule(m)
+	_, body := Run(mr, args.Tail().All())
 	if err, ok := body.(error); ok {
 		return env, err
 	}
@@ -60,14 +59,14 @@ func kernelDef(env *Env, args *List) (*Env, any) {
 		return env, errors.New("def used outside of module")
 	}
 
-	name, f, err := createFunc(env, args.Head(), args.Tail())
+	name, pattern, err := compileFuncPattern(args.Head())
 	if err != nil {
 		return env, err
 	}
 
-	_, ok := m.decls.LoadOrStore(name, f)
-	if ok {
-		return env, fmt.Errorf("attempted to redeclare function %q", name)
+	f, loadok := m.decls.LoadOrStore(name, NewFunc(env, name, pattern, args.Tail()))
+	if f, ok := f.(*Func); loadok && ok {
+		f.AddVariant(pattern, args.Tail())
 	}
 	return env, f
 }
@@ -77,47 +76,11 @@ func kernelFunc(env *Env, args *List) (*Env, any) {
 		return env, &ArgumentNumError{Num: args.Len(), Expected: -1}
 	}
 
-	_, f, err := createFunc(env, args.Head(), args.Tail())
+	name, pattern, err := compileFuncPattern(args.Head())
 	if err != nil {
 		return env, err
 	}
-	return env, f
-}
-
-var ErrPatternMatch = errors.New("arguments did not match defined pattern")
-
-func createFunc(env *Env, pattern any, body *List) (name Ident, f Evaluator, err error) {
-	switch pattern := pattern.(type) {
-	case Call:
-		if pattern.Len() == 0 {
-			return Ident{}, nil, errors.New("function pattern list must contain at least one element")
-		}
-
-		name, ok := pattern.Head().(Ident)
-		if !ok {
-			return Ident{}, nil, NewTypeError(name, reflect.TypeFor[Ident]())
-		}
-
-		cpattern, err := CompilePattern(pattern.Tail())
-		if err != nil {
-			return name, nil, err
-		}
-
-		return name, EvalFunc(func(fenv *Env, fargs *List) (*Env, any) {
-			eargs := CollectList(EvalAll(fenv, fargs.All()))
-			env, ok := cpattern.Match(env, eargs)
-			if !ok {
-				return fenv, ErrPatternMatch
-			}
-
-			env = env.Let(name, f)
-			_, ret := Run(env, body.All())
-			return fenv, ret
-		}), nil
-
-	default:
-		return Ident{}, nil, NewTypeError(pattern, reflect.TypeFor[*List](), reflect.TypeFor[Ident]())
-	}
+	return env, NewFunc(env, name, pattern, args.Tail())
 }
 
 func kernelAdd(env *Env, args *List) (*Env, any) {

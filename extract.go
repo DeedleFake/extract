@@ -30,8 +30,7 @@ func (call Call) Eval(env *Env, args *List) (*Env, any) {
 // Ident is an identifier for bound data, i.e. a declared
 // variable/function.
 type Ident struct {
-	line, col int
-	h         unique.Handle[string]
+	h unique.Handle[string]
 }
 
 func MakeIdent(str string) Ident {
