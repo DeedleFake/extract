@@ -34,6 +34,8 @@ func New(ctx context.Context) *Env {
 	return &r
 }
 
+// All returns an iterator that yields all bound identifiers in the
+// order that they are looked up in.
 func (env *Env) All() iter.Seq2[Ident, any] {
 	return func(yield func(Ident, any) bool) {
 		for ident, val := range env.locals.All() {
@@ -62,11 +64,15 @@ func (env Env) Context() context.Context {
 	return env.ctx
 }
 
+// Let returns a copy of env in which ident is bound to val.
 func (env Env) Let(ident Ident, val any) *Env {
 	env.locals = env.locals.Push(ident, val)
 	return &env
 }
 
+// Lookup gets the value of ident that it is bound to in the
+// environment. If ident is not bound to anything, it will return
+// false as the second return value.
 func (env Env) Lookup(ident Ident) (any, bool) {
 	for id, val := range env.All() {
 		if id == ident {

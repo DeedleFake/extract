@@ -120,7 +120,7 @@ func pinMatcher(env *Env, name Ident) (matcher, error) {
 	}
 
 	return func(env *Env, v any) (*Env, bool) {
-		return env, Equate(val, v)
+		return env, Equal(val, v)
 	}, nil
 }
 

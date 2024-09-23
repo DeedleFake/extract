@@ -8,10 +8,16 @@ import (
 	"unique"
 )
 
+// Pinned is an identifier that has been pinned. This is used to
+// signal during pattern matching that the value of an identifier
+// should be matched against instead of simply binding the identifier
+// to a new value.
 type Pinned struct {
 	Ident Ident
 }
 
+// Eval returns an error every time because a Pinned should never
+// actually be used as an expression.
 func (p Pinned) Eval(env *Env, args *List) (*Env, any) {
 	return env, fmt.Errorf("pinned ident %q used as expression", p.Ident)
 }
@@ -41,6 +47,8 @@ type Ident struct {
 	h unique.Handle[string]
 }
 
+// MakeIdent returns a new Ident for the given string. It has the
+// exact same semantics as [MakeAtom].
 func MakeIdent(str string) Ident {
 	return Ident{
 		h: unique.Make(str),
@@ -252,10 +260,13 @@ func Run[T any](env *Env, seq iter.Seq[T]) (e *Env, ret any) {
 	return env, ret
 }
 
+// Equaler is implemented by types that want to define custom
+// equality.
 type Equaler interface {
 	Equal(any) bool
 }
 
+// IsEquatable returns true if val is capable of being equated.
 func IsEquatable(val any) bool {
 	if _, ok := val.(Equaler); ok {
 		return true
@@ -263,7 +274,15 @@ func IsEquatable(val any) bool {
 	return reflect.TypeOf(val).Comparable()
 }
 
-func Equate(v1, v2 any) bool {
+// Equal returns true if one of the following is true, in order:
+//
+// * v1 is an Equaler and v1.Equal(v2)
+// * v2 is an Equaler and v2.Equal(v1)
+// * v1 == v2
+//
+// If the last step is reached and either type is not comparable, the
+// result is false.
+func Equal(v1, v2 any) bool {
 	if v1, ok := v1.(Equaler); ok {
 		return v1.Equal(v2)
 	}
