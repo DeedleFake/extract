@@ -68,6 +68,9 @@ func (p *parser) scan() scanner.Token {
 	}
 
 	if !p.s.Scan() {
+		if p.s.Err() != nil {
+			p.raise(p.s.Err())
+		}
 		p.raiseUnexpectedEOF()
 		return scanner.Token{}
 	}
@@ -89,6 +92,9 @@ func (p *parser) peek() any {
 	}
 
 	if !p.s.Scan() {
+		if p.s.Err() != nil {
+			p.raise(p.s.Err())
+		}
 		return nil
 	}
 
