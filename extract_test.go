@@ -2,6 +2,7 @@ package extract_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 	"deedles.dev/extract/parser"
 )
 
-func runScript(t *testing.T, src string) any {
+func runScript(t *testing.T, src string, checkErrors bool) any {
 	s, err := parser.Parse(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
@@ -17,7 +18,7 @@ func runScript(t *testing.T, src string) any {
 
 	r := extract.New(context.Background())
 	_, result := extract.Run(r, s.All())
-	if err, ok := result.(error); ok {
+	if err, ok := result.(error); ok && checkErrors {
 		t.Fatal(err)
 	}
 
@@ -26,7 +27,7 @@ func runScript(t *testing.T, src string) any {
 
 func TestSimpleScript(t *testing.T) {
 	const src = `"This is a test."`
-	result := runScript(t, src)
+	result := runScript(t, src, true)
 	if result != "This is a test." {
 		t.Fatalf("%#v", result)
 	}
@@ -34,7 +35,7 @@ func TestSimpleScript(t *testing.T) {
 
 func TestSingleCall(t *testing.T) {
 	const src = `(String.to_upper "test")`
-	result := runScript(t, src)
+	result := runScript(t, src, true)
 	if result != "TEST" {
 		t.Fatalf("%#v", result)
 	}
@@ -42,7 +43,7 @@ func TestSingleCall(t *testing.T) {
 
 func TestStringFormat(t *testing.T) {
 	const src = `(String.format "This is a %v." "test")`
-	result := runScript(t, src)
+	result := runScript(t, src, true)
 	if result != "This is a test." {
 		t.Fatalf("%#v", result)
 	}
@@ -56,7 +57,7 @@ func TestDefModule(t *testing.T) {
 
 	(Test.inc 2)
 	`
-	result := runScript(t, src)
+	result := runScript(t, src, true)
 	if result != int64(3) {
 		t.Fatalf("%#v", result)
 	}
@@ -85,8 +86,22 @@ func TestIndirectFunctionCall(t *testing.T) {
 
 	((Test.get ()) 1 2)
 	`
-	result := runScript(t, src)
+	result := runScript(t, src, true)
 	if result != int64(3) {
+		t.Fatalf("%#v", result)
+	}
+}
+
+func TestErrPatternMatch(t *testing.T) {
+	const src = `
+	(defmodule Test
+		(def (test 1) ())
+	)
+
+	(Test.test 2)
+	`
+	result := runScript(t, src, false)
+	if err, ok := result.(error); !ok || !errors.Is(err, extract.ErrPatternMatch) {
 		t.Fatalf("%#v", result)
 	}
 }

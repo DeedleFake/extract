@@ -28,6 +28,8 @@ func compilePattern(format any) (matcher, error) {
 	case Ident:
 		return assignMatcher(format), nil
 	case Call:
+		return listMatcher(format.List)
+	case *List:
 		return listMatcher(format)
 	default:
 		return nil, fmt.Errorf("unexpected type %T in pattern", format)
@@ -46,7 +48,7 @@ func assignMatcher(name Ident) matcher {
 	}
 }
 
-func listMatcher(list Call) (matcher, error) {
+func listMatcher(list *List) (matcher, error) {
 	matchers := make([]matcher, 0, list.Len())
 	for part := range list.All() {
 		matcher, err := compilePattern(part)

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-
-	"deedles.dev/xiter"
 )
 
 // kernel is the base scope containing the built-in, top-level
@@ -86,18 +84,10 @@ func kernelFunc(env *Env, args *List) (*Env, any) {
 	return env, f
 }
 
+var ErrPatternMatch = errors.New("arguments did not match defined pattern")
+
 func createFunc(env *Env, pattern any, body *List) (name Ident, f Evaluator, err error) {
 	switch pattern := pattern.(type) {
-	case Ident:
-		return pattern, EvalFunc(func(fenv *Env, args *List) (*Env, any) {
-			if args.Len() != 0 {
-				return fenv, &ArgumentNumError{Num: args.Len(), Expected: 0}
-			}
-
-			_, ret := Run(fenv, body.All())
-			return fenv, ret
-		}), nil
-
 	case Call:
 		if pattern.Len() == 0 {
 			return Ident{}, nil, errors.New("function pattern list must contain at least one element")
@@ -108,27 +98,20 @@ func createFunc(env *Env, pattern any, body *List) (name Ident, f Evaluator, err
 			return Ident{}, nil, NewTypeError(name, reflect.TypeFor[Ident]())
 		}
 
-		tail := pattern.Tail()
-		params := make([]Ident, 0, tail.Len())
-		for arg := range tail.All() {
-			name, ok := arg.(Ident)
-			if !ok {
-				return name, nil, NewTypeError(arg, reflect.TypeFor[Ident]())
-			}
-			params = append(params, name)
+		cpattern, err := CompilePattern(pattern.Tail())
+		if err != nil {
+			return name, nil, err
 		}
 
 		return name, EvalFunc(func(fenv *Env, fargs *List) (*Env, any) {
-			if fargs.Len() != len(params) {
-				return fenv, &ArgumentNumError{Num: fargs.Len(), Expected: tail.Len()}
+			eargs := CollectList(EvalAll(fenv, fargs.All()))
+			env, ok := cpattern.Match(env, eargs)
+			if !ok {
+				return fenv, ErrPatternMatch
 			}
 
-			for i, arg := range xiter.Enumerate(EvalAll(env, fargs.All())) {
-				fenv = fenv.Let(params[i], arg)
-			}
-
-			fenv = fenv.Let(name, f)
-			_, ret := Run(fenv, body.All())
+			env = env.Let(name, f)
+			_, ret := Run(env, body.All())
 			return fenv, ret
 		}), nil
 
