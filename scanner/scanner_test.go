@@ -1,10 +1,12 @@
 package scanner_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"deedles.dev/extract/scanner"
+	"deedles.dev/xiter"
 )
 
 func checkTokens(t *testing.T, s *scanner.Scanner, ex []any) {
@@ -56,5 +58,14 @@ func TestScan(t *testing.T) {
 			t.Parallel()
 			checkTokens(t, scanner.New(strings.NewReader(test.input)), test.output)
 		})
+	}
+}
+
+func TestUnexpectedRune(t *testing.T) {
+	s := scanner.New(strings.NewReader(`(test ^t)`))
+	xiter.Drain(s.All())
+	var err *scanner.UnexpectedRuneError
+	if !errors.As(s.Err(), &err) {
+		t.Fatalf("%#v", s.Err())
 	}
 }
